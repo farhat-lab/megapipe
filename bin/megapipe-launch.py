@@ -1,13 +1,24 @@
 #!/usr/bin/env python
-# Akshith Doddi 7/12/2017 (original script), additions by Luca Freschi
-# Farhat Lab
 
 import sys
 from sys import argv
-from os import popen, system, listdir, getcwd
+from os import popen, system, listdir, getcwd,path
+import os
 import re
 import subprocess as sbp
 import os
+import json
+
+
+
+def detect_cfg_file():
+	if path.isfile(os.environ['HOME']+"/.megapipe.json"):
+		with open(os.environ['HOME']+"/.megapipe.json") as json_file:
+			data = json.load(json_file)
+			return(data)
+	else:
+		print("::I do not have a configuration file. Please check the documentation to understand how to create one!")
+		sys.exit()
 
 
 def detect_weird_read_names(fastq):
@@ -20,26 +31,13 @@ def detect_weird_read_names(fastq):
 
 
 def valFQ(file1,file2):
-
 	print("::validate fastq files")
-	piper = popen("fastQValidator --file " + file1)
-	out1 = piper.read()
-	piper.close()
-
-
-	piper = popen("fastQValidator --file " + file2)
-	out2 = piper.read()
-	piper.close()
-
-
+	out1 = sbp.check_output("fastQValidator --file " + file1, shell=True)
+	out2 = sbp.check_output("fastQValidator --file " + file2, shell=True)
 	m1 = re.search("FASTQ_SUCCESS", out1)
 	m2 = re.search("FASTQ_SUCCESS", out2)
-
-	#print(m1, m2)
-	
 	if(m1 == None or m2 == None):
 		return False
-
 	return True
 
 
@@ -71,7 +69,6 @@ def checkDRs(depths):
 ##MAIN##
 ########
 
-
 if(len(argv) != 6):
 	print("::usage: {} <tag> <fastq_file1> <fastq_file2> <scratch_dir> <output_dir>".format(argv[0]))
 	sys.exit()
@@ -81,6 +78,9 @@ fqf1 = argv[2]
 fqf2 = argv[3]
 scratch_dir=argv[4]
 out_dir=argv[5]
+
+#I read the configuration file
+data_json=detect_cfg_file()
 
 file_log=out_dir+"/"+tag+"/{}.out".format(tag)
 
@@ -124,9 +124,9 @@ test_names1=detect_weird_read_names(fqf1)
 test_names2=detect_weird_read_names(fqf2)
 if((test_names1==True) or (test_names2==True)):
 	write_msg(file_log,"[INFO] I found some weird names. I am fixing them!")
-	cmd="mp-check-names.py {}".format(fqf1)
+	cmd="megapipe-check-names.py {}".format(fqf1)
 	system(cmd)
-	cmd="mp-check-names.py {}".format(fqf2)
+	cmd="megapipe-check-names.py {}".format(fqf2)
 	system(cmd)
 
 else:

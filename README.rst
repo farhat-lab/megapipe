@@ -1,6 +1,6 @@
-###Version
+### Version
 
-###Todo
+### Todo
  * build the package
  * reference genome -- do something intelligent -- check if it is present and if not generate it -- the megapipe-launch could check this
  * rename the scripts so that we know that we are talking about megapipe
@@ -8,7 +8,7 @@
  * user should install its own dependencies -- remove absolute paths
 
 
-###Workflow
+### Workflow
 
 
 
@@ -87,9 +87,9 @@ megapipelaunch.py 00-metadata/reseqtb-RESEQTB_Dec16-acclist.tsv 01-mp_out/ /n/sc
 
 
 
-
+```
 from gridmanager import gridpuppeteer as gp
 a=gp.GridEngine()
 a.generate_script("prova.sh","short","12:00","prova.out","10M","wget http://poisson.phc.unipi.it/~freschi/img/luca.jpg")
 a.launch_job("prova.sh")
-
+```
