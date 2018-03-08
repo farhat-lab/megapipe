@@ -61,6 +61,24 @@ def modifyTableIdenfication(table_identification,new_metadata):
                     data[internal_xref][fields[idx]]={}
                     data[internal_xref][fields[idx]]=item
                     pass
+            # I set up the public_xref if the biosample is defined
+            try:
+                idx_biosample=fields.index("biosample")
+                idx_public_xref=fields.index("public_xref")
+                idx_runs=fields.index("runs")
+                public_xref=entry[idx_public_xref]
+                biosample=entry[idx_biosample]
+                runs=entry[idx_runs]
+                if(public_xref=="") and (biosample!=""):
+                    data[internal_xref]["public_xref"]={}
+                    data[internal_xref]["public_xref"]=biosample
+                if(public_xref=="") and (biosample=="") and (runs!=""):
+                    data_runs=runs.split(",")
+                    if(len(data_runs)==1):
+                        data[internal_xref]["public_xref"]={}
+                        data[internal_xref]["public_xref"]=runs
+            except:
+                pass
     with open(table_identification+".mod","w") as outf:
         # I write down the fields
         outf.write("\t".join(new_fields)+"\n")

@@ -92,20 +92,16 @@ If there are multiple runs, the synthax becomes the following:
  <run_A>:<fastq1>,<fastq2>;<run_nameB>:<fastq1>,<fastq2>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Downloading data for public strains (NCBI)
+######################################
+Retrieving ids of the runs for the public strains:
+::
+ megapipe-retrieve-runIDs-from-table.py <table> <dir_results> <file_output>
+ megapipe-retrieve-runIDs-from-table.py dataNCBI_table_identification_strains.txt results/ runsToDownload.txt
+Note: 
+* if you do not have a directory with some results, just create a new directory
+* the script checks the <dir_results> to see if you already analyzed some of the strains. If there is a directory that matches the public_xref of one of the strains, the script will not put the corresponding runs into the output file
+* are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
 
 In order to download fastq files from NCBI you can use two utilities:
 * megapipe-download-fastq-from-ncbi.py
@@ -197,22 +193,31 @@ megapipe-launch.py 00-metadata/reseqtb-RESEQTB_Dec16-acclist.tsv 01-mp_out/ /n/s
 **NOTE: remember to clean the scratch from time to time!** 
 
 
-#### How to deal with pip
-##### How to install the module
-python setup.py sdist
-pip install megapipe-0.1.0.tar.gz
-How to remove the module
-pip uninstall megapipe
+
+Misc
+====
+
+How to deal with pip
+##################
+How to pack the module:
+::
+ python setup.py sdist
+
+How to install the module:
+::
+ pip install megapipe-0.1.0.tar.gz
+
+How to remove the module:
+::
+ pip uninstall megapipe
+
+How to use the gridmanager module
+##############################
+Here is an example:
+::
+ from gridmanager import gridpuppeteer as gp
+ a=gp.GridEngine()
+ a.generate_script("prova.sh","short","12:00","prova.out","10M","wget http://poisson.phc.unipi.it/~freschi/img/luca.jpg")
+ a.launch_job("prova.sh")
 
 
-
-
-```
-from gridmanager import gridpuppeteer as gp
-a=gp.GridEngine()
-a.generate_script("prova.sh","short","12:00","prova.out","10M","wget http://poisson.phc.unipi.it/~freschi/img/luca.jpg")
-a.launch_job("prova.sh")
-```
-
-
-==::  
