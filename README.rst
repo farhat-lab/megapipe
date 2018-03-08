@@ -17,8 +17,7 @@ Installation
 ############
 You need to get the tar.gz present in the dist directory. Then you can install the package: 
 ::
-    pip install <path_to_targz>
-
+ pip install <path_to_targz>
 Now you need to create and set up the .megapipe.json configuration file. 
  * This file is needed to tell megapipe where some of the programs used by the pipeline are located (these programs are .jar files that in theory can be located everywhere, so it is difficult to autodetect them). 
  * This file is a hidden file located in your home directory (~/.megapipe.json). You will able to list it if you use the -a option with the command 'ls'.
@@ -65,8 +64,8 @@ In order to create a new table for strain identification, you can run the follow
  megapipe-create-table-identification-strains.py dataNCBI_tab.txt dataNCBI_table_identification_strains.txt
 
 Notes: 
-* if you create a brand new table, please start tracking the changes with git. So that if something goes wrong you have the chance to go back.
-* you are supposed to create a this table starting from public data. If you want to start from your own data, please change this script.
+ * if you create a brand new table, please start tracking the changes with git. So that if something goes wrong you have the chance to go back.
+ * you are supposed to create a this table starting from public data. If you want to start from your own data, please change this script.
 
 In order to add new strains to an existing table, you can run the following command:
 ::
@@ -99,13 +98,13 @@ Retrieving ids of the runs for the public strains:
  megapipe-retrieve-runIDs-from-table.py dataNCBI_table_identification_strains.txt results/ runsToDownload.txt
 
 Notes: 
-* if you do not have a directory with some results, just create a new directory
-* the script checks the <dir_results> to see if you already analyzed some of the strains. If there is a directory that matches the public_xref of one of the strains, the script will not put the corresponding runs into the output file
-* are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
+ * if you do not have a directory with some results, just create a new directory
+ * the script checks the <dir_results> to see if you already analyzed some of the strains. If there is a directory that matches the public_xref of one of the strains, the script will not put the corresponding runs into the output file
+ * are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
 
 In order to download fastq files from NCBI you can use two utilities:
-* megapipe-download-fastq-from-ncbi.py
-* megapipe-download-fastq-from-ncbi-HT-o2.py
+ * megapipe-download-fastq-from-ncbi.py
+ * megapipe-download-fastq-from-ncbi-HT-o2.py
 
 Use "megapipe-download-fastq-from-ncbi.py" when you have a few fastq files to download (5 or less) or you need to dowload the runs sequentially (num_of_threads=1 in this case). First you need to have a text file with the run ids you want to download. For instance:
 ::
