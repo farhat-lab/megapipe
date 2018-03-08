@@ -1,29 +1,146 @@
-### Version
+Version
+=======
 
-### Todo
+Todo
+==== 
  * build the package
  * reference genome -- do something intelligent -- check if it is present and if not generate it -- the megapipe-launch could check this
  * rename the scripts so that we know that we are talking about megapipe
- * module to run the calculations on slurm // if I can do it so tht it can run the things on bsub -- even better
+ * module to run the calculations on slurm // if I can do it so that it can run the things on bsub -- even better
  * user should install its own dependencies -- remove absolute paths
 
 
-### Workflow
+Workflow
+========
+
+Installation
+############
+You need to get the tar.gz present in the dist directory. Then you can install the package: 
+::
+    pip install <path_to_targz>
+
+Now you need to create and set up the .megapipe.json configuration file. 
+ * This file is needed to tell megapipe where some of the programs used by the pipeline are located (these programs are .jar files that in theory can be located everywhere, so it is difficult to autodetect them). 
+ * This file is a hidden file located in your home directory (~/.megapipe.json). You will able to list it if you use the -a option with the command 'ls'.
+
+Here are the steps to create and edit this file. 
+::
+    cd
+    > .megapipe.json
+    nano .megapipe.json 
+
+Now you can paste the following code (json format):
+::
+ {
+ "kraken_db":"/n/data1/hms/dbmi/farhat/bin/kraken/tbdb/",
+ "picard":"/opt/picard-2.7.1/bin/picard.jar",
+ "pilon":"/n/data1/hms/dbmi/farhat/bin/pilon/pilon-1.22.jar",
+ "qualimap":"/home/lf61/mfarhat/bin/qualimap_v2.2.1/qualimap",
+ "prinseq":"/home/lf61/mfarhat/bin/prinseq-lite-0.20.4/prinseq-lite.pl",
+ "spades":"/home/lf61/sw/spades/3.10.1/bin/spades.py",
+ "fasta_ref":"/home/lf61/lf61/repos/megapipe/RefGen/TBRefGen.fasta"
+ }
+
+Of course you need to change the paths of each program with the paths. Save the file and exit.
+
+Downloading metadata of public strains
+##################################
+In order to download the metadata from runs that are available on NCBI you can run the follwing command:
+::
+ #megapipe-download-metadata-from-ncbi.py <txt_with_run_ids> <tag_dest_files>
+ megapipe-download-metadata-from-ncbi.py toDownload.txt dataNCBI
+
+Two files will be generated: one (<tag>.txt with the raw text data and one <tag>_tab.txt with the data in tabular format.)
+Note: on o2 you may need to load the perl module in order to use this script since eutils, the tools that retrieve the data from NCBI are written in operl. 
+::
+ module load gcc/6.2.0 perl/5.24.0
+
+In a future version of megapipe we will evaluate the possibility of using a python module instead of the standalone version of eutils.
+
+Create or modify the table for strain identification
+###############################################
+In order to create a new table for strain identification, you can run the following command:
+::
+ #megapipe-create-table-identification-strains.py <table_metadata> <table_identification_strains>
+ megapipe-create-table-identification-strains.py dataNCBI_tab.txt dataNCBI_table_identification_strains.txt
+
+Notes: 
+* if you create a brand new table, please start tracking the changes with git. So that if something goes wrong you have the chance to go back.
+* you are supposed to create a this table starting from public data. If you want to start from your own data, please change this script.
+
+In order to add new strains to an existing table, you can run the following command:
+::
+ #megapipe-modify-table-identification-strains.py <table_identification_strains> <table_metadata>
+ megapipe-modify-table-identification-strains.py dataNCBI_table_identification_strains.txt new_metadata.txt
+Note: I am adding again public data.
+
+In order to add internal strains to the table, you can use the same command:
+::
+ #megapipe-modify-table-identification-strains.py <table_identification_strains> <table_metadata>
+ megapipe-modify-table-identification-strains.py dataNCBI_table_identification_strains.txt new_metadata2.txt
+
+However, plese take into account that internal strains MUST have a public_xref set to "" and MUST have a column "internal_fastq_files" that tells megapipe where to retrive the fastq files. Here is an example of a table for internal strains:
+::
+ internal_xref   internal_fastq_files
+ 01-R0902        run1:/home/lf61/mfarhat/fastq_db/pools/01-R0902.1.fastq.gz,/home/lf61/mfarhat/fastq_db/pools/01-R0902.2.fastq.gz
+
+Each sequencing run included into "internal_fastq_files" should have the following format:
+::
+ <run_name>:<fastq1>,<fastq2>
+If there are multiple runs, the synthax becomes the following:
+::
+ <run_A>:<fastq1>,<fastq2>;<run_nameB>:<fastq1>,<fastq2>
 
 
 
-(0) if megapipe is not in your path, you should go into the directory where the megapipe binaries are located (with the "cd" command) and run the script ./add-mp-to-path.sh. In my case:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+In order to download fastq files from NCBI you can use two utilities:
+* megapipe-download-fastq-from-ncbi.py
+* megapipe-download-fastq-from-ncbi-HT-o2.py
+
+Use "megapipe-download-fastq-from-ncbi.py" when you have a few fastq files to download (5 or less) or you need to dowload the runs sequentially (num_of_threads=1 in this case). First you need to have a text file with the run ids you want to download. For instance:
 ```
-cd lf61/work-horse/megapipe/bin/
-./add-mp-to-path.sh
+SRR023455
+SRR023480
+SRR026444
+```
+In order to download the runs, open an interactive session and choose the number of cores you need and the amount of memory (10G should be fine):
+```
+srun -n 3 -t 0-6:00 --pty -p interactive --mem=10G /bin/bash
+```
+Then run the script:
+```
+# synthax: megapipe-download-fastq-from-ncbi.py <txt_file_with_run_ids> <dest_directory> <num_of_threads>
+megapipe-download-fastq-from-ncbi.py toDownload.txt fastq 3
+```
+Note: it takes 45m to download three runs. 
 
-```
-Then, in order to be able to have access to the megapipe commands, you should reload your .bashrc configuration file
 
+Use "megapipe-download-fastq-from-ncbi-HT-o2.py" if you need to download quickly multiple sequencing runs from NCBI.
+First you need to have a text file with the run ids you want to download. For instance:
 ```
-. ~/.bashrc
+SRR023455
+SRR023480
+SRR026444
 ```
-Theoretically, now you should be ready to use megapipe (if all the paths and permission are OK).
+Now you can run the script:
+```
+# synthax: megapipe-download-fastq-from-ncbi-HT-o2.py <txt_file_with_run_ids> <dest_directory> <directory_log_files>
+megapipe-download-fastq-from-ncbi-HT-o2.py toDownload.txt fastq/ logs
+```
 
 
 (1) load the python3 module and create a directory where you want to store your data
@@ -33,21 +150,16 @@ mkdir mp_out
 cd mp_out
 ```
 
-(2) copy the files of the reference genome -- they are needed by the pipeline -- they are located on the RefGen directory on inside the megapipe directory
-```
-cp -r ~/lf61/work-horse/megapipe/RefGen .
-```
-
 (3) Generate the list of the files to analyze. 
 
 Here is the general synthax  of the command:
 ```
-generate-acclist.py <dir_fastq> <tag_pair_end_fastq1> <extension_fastq1> > <output_file>
+megapipe-generate-acclist.py <dir_fastq> <tag_pair_end_fastq1> <extension_fastq1> > <output_file>
 ```
 Here is an example of how to run the command:
 
 ```
-generate-acclist.py ../fastq_db/reseqtb/IS-1001/ _1 _1.fastq.gz > acclist2.0
+megapipe-generate-acclist.py ../fastq_db/reseqtb/IS-1001/ _1 _1.fastq.gz > acclist2.0
 ```
 
 The output file of generate-acclist.py is a tab separated value file (acclist file or accession list file) that contains the tag of the genome and the absolute paths of the 2 fastq files. The tag is automatically generated from the fastq file names. Here is one line of a sample acclist file:
@@ -60,16 +172,16 @@ The output file of generate-acclist.py is a tab separated value file (acclist fi
 (4) Run the pipeline
 Here is the general synthax  of the command:
 ```
-megapipelaunch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 0
-megapipelaunch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 1
+megapipe-launch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 0
+megapipe-launch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 1
 
 ```
 You need two commands because the first one generates the scripts that will be run on orchestra (runmode 0), while the second command actually launches the jobs (runmode 1).
 Here is an example of how to run the command in real life:
 
 ```
-megapipelaunch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 0
-megapipelaunch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 1
+megapipe-launch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 0
+megapipe-launch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 1
 ```
 acclist2.0 is the accession list file you generated in the step (3); "test6" is your output directory where the results will be stored; "/n/scratch2/lf61/mp/" is a directory in the scratch that will contain your partial results (please be sure that this directory exists and it is writable).
 
@@ -77,12 +189,20 @@ In the example I proposed, the first and the last genomes variables are both set
 
 For instance here is an example that show how to launch a megapipe analysis for all the genomes of a dataset of the RESEQTB project:
 ```
-megapipelaunch.py 00-metadata/reseqtb-RESEQTB_Dec16-acclist.tsv 01-mp_out/ /n/scratch2/lf61/mp/ 1 2432 1
+megapipe-launch.py 00-metadata/reseqtb-RESEQTB_Dec16-acclist.tsv 01-mp_out/ /n/scratch2/lf61/mp/ 1 2432 1
 ```
 
 **GOOD LUCK for your analyses!**
 
 **NOTE: remember to clean the scratch from time to time!** 
+
+
+#### How to deal with pip
+##### How to install the module
+python setup.py sdist
+pip install megapipe-0.1.0.tar.gz
+How to remove the module
+pip uninstall megapipe
 
 
 
@@ -93,3 +213,6 @@ a=gp.GridEngine()
 a.generate_script("prova.sh","short","12:00","prova.out","10M","wget http://poisson.phc.unipi.it/~freschi/img/luca.jpg")
 a.launch_job("prova.sh")
 ```
+
+
+==::  

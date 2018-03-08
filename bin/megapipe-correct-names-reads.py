@@ -7,6 +7,7 @@ import os
 
 if(len(sys.argv) != 2):
 	print("::usage: {} <fastq_file>".format(sys.argv[0]))
+	print("[INFO] the original file will be rewritten!")
 	sys.exit()
 
 fastq_file=sys.argv[1]

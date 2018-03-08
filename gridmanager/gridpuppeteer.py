@@ -9,15 +9,15 @@ class GridEngine:
 	def __init__(self):
 		try:
 			out = sp.check_output("which bsub 2>&1", shell=True)
-			print(out)
-			if bool(re.search("bsub\n$",out)):
+			#print(out)
+			if bool(re.search("bsub\n$",out.decode('utf-8'))):
 				self.myGridEngine="LSF"
 		except:
 			pass
 		try:
 			out = sp.check_output("which sbatch 2>&1", shell=True)
-			print(out)
-			if bool(re.search("sbatch\n$",out)):
+			#print(out)
+			if bool(re.search("sbatch\n$",out.decode('utf-8'))):
 				self.myGridEngine="Slurm"
 		except:
 			pass
@@ -33,7 +33,7 @@ class GridEngine:
 				outf.write("#BSUB -R rusage[mem="+mem_requirements+"]\n")
 				if os.path.isfile(self.file_modules): 
 					with open(self.file_modules, 'r') as inp:
-						text = inp.read()	
+						text = inp.read()
 						modules=re.split(",|\n",text)
 						for module in modules:
 							if module!="":
