@@ -97,7 +97,8 @@ Retrieving ids of the runs for the public strains:
  megapipe-retrieve-runIDs-from-table.py <table> <dir_results> <file_output>
  megapipe-retrieve-runIDs-from-table.py dataNCBI_table_identification_strains.txt results/ runsToDownload.txt
 
-Notes: 
+Notes:
+
  * if you do not have a directory with some results, just create a new directory
  * the script checks the <dir_results> to see if you already analyzed some of the strains. If there is a directory that matches the public_xref of one of the strains, the script will not put the corresponding runs into the output file
  * are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
