@@ -91,14 +91,14 @@ If there are multiple runs, the synthax becomes the following:
 ::
  <run_A>:<fastq1>,<fastq2>;<run_nameB>:<fastq1>,<fastq2>
 
-
 Downloading data for public strains (NCBI)
 ######################################
 Retrieving ids of the runs for the public strains:
 ::
  megapipe-retrieve-runIDs-from-table.py <table> <dir_results> <file_output>
  megapipe-retrieve-runIDs-from-table.py dataNCBI_table_identification_strains.txt results/ runsToDownload.txt
-Note: 
+
+Notes: 
 * if you do not have a directory with some results, just create a new directory
 * the script checks the <dir_results> to see if you already analyzed some of the strains. If there is a directory that matches the public_xref of one of the strains, the script will not put the corresponding runs into the output file
 * are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
@@ -108,35 +108,33 @@ In order to download fastq files from NCBI you can use two utilities:
 * megapipe-download-fastq-from-ncbi-HT-o2.py
 
 Use "megapipe-download-fastq-from-ncbi.py" when you have a few fastq files to download (5 or less) or you need to dowload the runs sequentially (num_of_threads=1 in this case). First you need to have a text file with the run ids you want to download. For instance:
-```
-SRR023455
-SRR023480
-SRR026444
-```
-In order to download the runs, open an interactive session and choose the number of cores you need and the amount of memory (10G should be fine):
-```
-srun -n 3 -t 0-6:00 --pty -p interactive --mem=10G /bin/bash
-```
-Then run the script:
-```
-# synthax: megapipe-download-fastq-from-ncbi.py <txt_file_with_run_ids> <dest_directory> <num_of_threads>
-megapipe-download-fastq-from-ncbi.py toDownload.txt fastq 3
-```
-Note: it takes 45m to download three runs. 
+::
+ SRR023455
+ SRR023480
+ SRR026444
 
+In order to download the runs, open an interactive session and choose the number of cores you need and the amount of memory (10G should be fine):
+::
+ srun -n 3 -t 0-6:00 --pty -p interactive --mem=10G /bin/bash
+
+Then run the script:
+::
+ # synthax: megapipe-download-fastq-from-ncbi.py <txt_file_with_run_ids> <dest_directory> <num_of_threads>
+ megapipe-download-fastq-from-ncbi.py toDownload.txt fastq 3
+
+Note: it takes 45m to download three runs. 
 
 Use "megapipe-download-fastq-from-ncbi-HT-o2.py" if you need to download quickly multiple sequencing runs from NCBI.
 First you need to have a text file with the run ids you want to download. For instance:
-```
-SRR023455
-SRR023480
-SRR026444
-```
+::
+ SRR023455
+ SRR023480
+ SRR026444
+
 Now you can run the script:
-```
-# synthax: megapipe-download-fastq-from-ncbi-HT-o2.py <txt_file_with_run_ids> <dest_directory> <directory_log_files>
-megapipe-download-fastq-from-ncbi-HT-o2.py toDownload.txt fastq/ logs
-```
+::
+ # synthax: megapipe-download-fastq-from-ncbi-HT-o2.py <txt_file_with_run_ids> <dest_directory> <directory_log_files>
+ megapipe-download-fastq-from-ncbi-HT-o2.py toDownload.txt fastq/ logs
 
 
 (1) load the python3 module and create a directory where you want to store your data
