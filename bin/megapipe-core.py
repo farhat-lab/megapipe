@@ -6,52 +6,55 @@ import re
 import subprocess as sbp
 import json
 from glob import glob
+import pkg_resources
 
 def detect_cfg_file():
-	if path.isfile(environ['HOME']+"/.megapipe.json"):
-		with open(environ['HOME']+"/.megapipe.json") as json_file:
-			data = json.load(json_file)
-			#If you update the pipeline, do not forget to update this check
-			if(("picard" in data) and ("pilon" in data) and ("prinseq" in data) and ("kraken_db" in data) and ("qualimap" in data) and ("spades" in data) and ("fasta_ref" in data)):
-				return(data)
-	else:
-		print("::I do not have a configuration file. Please check the documentation to understand how to create one!")
-		sys.exit()
+    if path.isfile(environ['HOME']+"/.megapipe.json"):
+        with open(environ['HOME']+"/.megapipe.json") as json_file:
+            data = json.load(json_file)
+            #If you update the pipeline, do not forget to update this check
+            if(("picard" in data) and ("pilon" in data) and ("prinseq" in data) and ("kraken_db" in data) and ("qualimap" in data) and ("spades" in data) and ("fasta_ref" in data)):
+                return(data)
+            else:
+                print("::I could not find some required variables in the configuration file")
+    else:
+        print("::I do not have a configuration file. Please check the documentation to understand how to create one!")
+        sys.exit()
 
 def detect_weird_read_names(fastq):
-	with open(fastq,"r") as inf:
-		fline=inf.readline()
-		decision=False
-		if re.search("#0/[1-9]\n$",fline):
-			decision=True
-	return decision
+    with open(fastq,"r") as inf:
+        fline=inf.readline()
+        decision=False
+        if re.search("#0/[1-9]\n$",fline):
+            decision=True
+    return decision
 
 def valFQ(file1,file2):
-	print("::validate fastq files")
-	out1 = sbp.check_output("fastQValidator --file " + file1, shell=True)
-	out2 = sbp.check_output("fastQValidator --file " + file2, shell=True)
-	m1 = re.search("FASTQ_SUCCESS", out1)
-	m2 = re.search("FASTQ_SUCCESS", out2)
-	if(m1 == None or m2 == None):
-		return False
-	return True
+    print("::validate fastq files")
+    out1 = sbp.check_output("fastQValidator --file " + file1, shell=True)
+    out2 = sbp.check_output("fastQValidator --file " + file2, shell=True)
+    m1 = re.search("FASTQ_SUCCESS", out1)
+    m2 = re.search("FASTQ_SUCCESS", out2)
+    if(m1 == None or m2 == None):
+        return False
+    return True
 
 def write_msg(file_log,msg):
-	with open(file_log,"a") as outf:
-		outf.write(msg+"\n")
+    if path.exists(file_log):
+        mode = 'a'
+    else:
+        mode = 'w'
+    with open(file_log,mode) as outf:
+        outf.write(msg+"\n")
 
 def checkDRs(depths):
-	"""The purpose of this method is to check that at least 95% of base positions in the drug resistance conferring regions of the genome are covered 10x. This method was heavily inspired by and based upon Dr. Farhat's script "qc_report.py" in the work-horse directory"""
-
-	okaybases = 0
-
-	for d in depths:
-		if(d >= 10):
-			okaybases += 1
-	
-	okayp = okaybases / len(depths)
-	return okayp
-
+    """The purpose of this method is to check that at least 95% of base positions in the drug resistance conferring regions of the genome are covered 10x. This method was heavily inspired by and based upon Dr. Farhat's script "qc_report.py" in the work-horse directory"""
+    okaybases = 0
+    for d in depths:
+        if(d >= 10):
+            okaybases += 1
+    okayp = okaybases / len(depths)
+    return okayp
 
 ########
 ##MAIN##
@@ -67,13 +70,16 @@ table=sys.argv[2]
 dir_fastq=sys.argv[3]
 out_dir=sys.argv[4]
 scratch_dir=sys.argv[5]
-log_dir=sys.argv[5]
-
+log_dir=sys.argv[6]
 #I read the configuration file
 data_json=detect_cfg_file()
 
 # the log file will the the following
 file_log=log_dir+"/"+tag+"/{}.out".format(tag)
+print("here")
+print(file_log)
+# I log the version of megapipe I am using
+write_msg(file_log,"[INFO] I am using megapipe v{}".format(pkg_resources.get_distribution("megapipe").version))
 
 # I create new directories (if they do not exist)
 if not path.exists(out_dir):
@@ -133,16 +139,22 @@ with open(table,"r") as inp:
 write_msg(file_log,"--->Unzipping fastq files (on {})".format(scratch_dir))
 
 # I will use this dictionary to flag the runs (0=everything is fine, 1=there is a problem, so the run will be excluded)
-flag_runs={}
+data_runs={}
 
-for run in runs_to_analyze:
+for current_run in runs_to_analyze:
 
     # I get the info about this run
-    general_info=run.split(":")
+    general_info=current_run.split(":")
+    run=general_info[0]
     fastq_files=general_info[1].split(",")
 
     # the flag is 0 for now.
-    flag_runs[general_info[0]]=0
+    data_runs[run]={}
+    data_runs[run]["flag"]={}
+    data_runs[run]["fq1"]={}
+    data_runs[run]["fq1"]=fastq_files[0]
+    data_runs[run]["fq2"]={}
+    data_runs[run]["fq2"]=fastq_files[1]
 
     # I unzip the fastq files of this run
     #I unzip the fastq files in a directory on scratch2
@@ -202,73 +214,70 @@ for run in runs_to_analyze:
     # I classify the reads with Kraken
     write_msg(file_log,"----->Classifying reads with Kraken")
     path_to_krakendb=data_json["kraken_db"]
-    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, scratch_dir + "/" + trflstem1 + .krkn, path_to_krakendb)
+    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, scratch_dir + "/" + trflstem1 + ".krkn", path_to_krakendb)
     e=sbp.check_output(cmd,shell=True)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc1 = float(mat.groups()[1]) / 100
-    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl2, scratch_dir + "/" + trflstem2 + .krkn, path_to_krakendb)
+    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl2, scratch_dir + "/" + trflstem2 + ".krkn", path_to_krakendb)
     e=sbp.check_output(cmd,shell=True)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
     write_msg(file_log,"[INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
     # We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
+    # write doen in the log tbperc1 and 2
     if(tbperc1 < 0.9):
-        write_msg(file_log,"Less than 90% of reads in the first fastq file belonged to mycobacterium tuberculosis")
+        write_msg(file_log,"Less than 90% of reads in the first fastq file belonged to Mycobacterium tuberculosis")
         flag_runs[run]=1
         continue
     if(tbperc2 < 0.9):
-        write_msg(file_log,"Less than 90% of reads in the second fastq file belonged to mycobacterium tuberculosis")
+        write_msg(file_log,"Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
         flag_runs[run]=1
         continue
 
 # Now I can combine the runs that succeeded
-fq_comb1=scratch_dir + "/" + tag+"combined_1.fastq"
-fq_comb2=scratch_dir + "/" + tag+"combined_2.fastq"
+fq_comb1=scratch_dir + "/" + tag+"-combined_1.fastq"
+fq_comb2=scratch_dir + "/" + tag+"-combined_2.fastq"
 for run in flag_runs:
-    if(flag_runs[run]==0):
-        
+    if(flag_runs[run]["flag"]==0):
+        trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
+        trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
+        cmd="cat {} >> {}".format(trflstem1,fq_comb1)
+        system(cmd)
+        cmd="cat {} >> {}".format(trflstem2,fq_comb2)
+        system(cmd)
 
-
-
-
-
+# Aligning reads to the reference
 write_msg(file_log,"--->Aligning reads with bwa")
 samfile = scratch_dir + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-piper = popen("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-write_msg(file_log,piper.read())
-piper.close()
+out=sbp.check_output("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+write_msg(file_log,out)
 
+# Sorting and converting to bam
 write_msg(file_log,"--->Sorting sam file with Picard")
 bamfile = scratch_dir + "/{}.sorted.bam".format(tag)
 path_to_picard=data_json["picard"]
-piper = popen("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-write_msg(file_log,piper.read())
-piper.close()
+out=sbp.check_output("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+write_msg(file_log,out)
 
-#piper = popen("samtools view -b -o {0} {1}".format(bamfile, samfile))
-#piper.close()
-#outputer.write("--->Converting to bam file done.\n")
-
+# Quality control
 write_msg(file_log,"--->Evaluating mapping with Qualimap")
 path_to_qualimap=data_json["qualimap"]
 system(path_to_qualimap + " bamqc -bam {0} --outfile {1}.pdf --outformat PDF".format(bamfile, tag))
-qdir = out_dir + "/" + tag+ "/" + bamfile[bamfile.rindex("/") + 1:-4] + "_stats"
+qdir = scratch_dir + "/" + bamfile[bamfile.rindex("/") + 1:-4] + "_stats"
 system("mv {0} {1}".format(bamfile.replace(".bam", "_stats"), qdir))
 write_msg(file_log,"[INFO] Please see the Qualimap report in {}".format(qdir))
 
+# Removing duplicates
 write_msg(file_log,"--->Removing duplicates from bam file with Picard")
 drbamfile = bamfile.replace(".bam", ".duprem.bam")
-piper = popen("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4])) # help from http://seqanswers.com/forums/showthread.php?t=13192
-write_msg(file_log,piper.read())
-piper.close()
+out=sbp.check_output("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4])) # help from http://seqanswers.com/forums/showthread.php?t=13192
+write_msg(file_log,out)
 write_msg(file_log,"[INFO] Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
 
 write_msg(file_log,"--->Calculating depth")
-piper = popen("samtools depth -a " + drbamfile)
-dout = piper.read()
-piper.close()
-dmat = re.findall("(.+\t)([0-9]+)(\n)", dout)
+out = sbp.check_output("samtools depth -a " + drbamfile)
+dmat = re.findall("(.+\t)([0-9]+)(\n)", out)
 depths = [float(t[1]) for t in dmat]
 
 #gencov = sum(depths) / len(depths)
@@ -277,9 +286,8 @@ gencovprop = checkDRs(depths)
 write_msg(file_log,"[INFO] The percent of H37Rv bases that have a coverage of at least 10x is {}.".format(str(gencovprop * 100)))
 if(gencovprop < 0.95): # The threshold is 95%
 	write_msg(file_log,"[PROBLEM] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
-	write_msg(file_log,"Exiting now...\n")
 	sys.exit()
-fileout_depth=out_dir+"/"+tag+"/{}.depth".format(tag)
+fileout_depth=results_dir+"/"+tag+"/{}.depth".format(tag)
 write_msg(fileout_depth,dout)
 refcov = 0
 for d in depths:
@@ -290,20 +298,15 @@ write_msg(file_log,"[INFO] Percent of reference genome covered: {}".format(refco
 write_msg(file_log,"--->Indexing {}".format(drbamfile))
 system("samtools index {}".format(drbamfile))
 
+# I call the variants with pilon
 write_msg(file_log,"--->Variant calling with Pilon")
 path_to_pilon=data_json["pilon"]
-piper = popen("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, out_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]))
-write_msg("{0}/{1}/{1}-pilon.log".format(out_dir,tag),piper.read())
-piper.close()
+out=sbp.check_output("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, scratch_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]))
+write_msg("{0}/{1}/{1}-pilon.log".format(scratch_dir,tag),out)
 
-
+# I generate the assembly with spades
 write_msg(file_log,"--->Generating the assembly with Spades")
 #-t (treads); -m (memory, in Gb)
 path_to_spades=data_json["spades"]
-piper = popen("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(sctrfl1,sctrfl2,out_dir,tag))
-piper.close()
-
-
-
-
+sbp.check_output("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(fq_comb1,fq_comb2,scratch_dir,tag))
 

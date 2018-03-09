@@ -1,15 +1,3 @@
-Version
-=======
-
-Todo
-==== 
- * build the package
- * reference genome -- do something intelligent -- check if it is present and if not generate it -- the megapipe-launch could check this
- * rename the scripts so that we know that we are talking about megapipe
- * module to run the calculations on slurm // if I can do it so that it can run the things on bsub -- even better
- * user should install its own dependencies -- remove absolute paths
-
-
 Workflow
 ========
 
@@ -163,7 +151,16 @@ For instance here is an example that show how to launch a megapipe analysis for 
 
 **NOTE: remember to clean the scratch from time to time!** 
 
+Version history
+===============
 
+
+Todo
+==== 
+* v2.0
+    * everything should happen in the scratch. Just save the final results on the results directory
+* other improvements
+    * add lineage calling
 
 Misc
 ====
