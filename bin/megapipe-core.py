@@ -5,7 +5,7 @@ from os import popen, system, listdir, getcwd, path, environ, makedirs
 import re
 import subprocess as sbp
 import json
-
+from glob import glob
 
 def detect_cfg_file():
 	if path.isfile(environ['HOME']+"/.megapipe.json"):
@@ -18,7 +18,6 @@ def detect_cfg_file():
 		print("::I do not have a configuration file. Please check the documentation to understand how to create one!")
 		sys.exit()
 
-
 def detect_weird_read_names(fastq):
 	with open(fastq,"r") as inf:
 		fline=inf.readline()
@@ -26,7 +25,6 @@ def detect_weird_read_names(fastq):
 		if re.search("#0/[1-9]\n$",fline):
 			decision=True
 	return decision
-
 
 def valFQ(file1,file2):
 	print("::validate fastq files")
@@ -38,11 +36,9 @@ def valFQ(file1,file2):
 		return False
 	return True
 
-
 def write_msg(file_log,msg):
 	with open(file_log,"a") as outf:
 		outf.write(msg+"\n")
-
 
 def checkDRs(depths):
 	"""The purpose of this method is to check that at least 95% of base positions in the drug resistance conferring regions of the genome are covered 10x. This method was heavily inspired by and based upon Dr. Farhat's script "qc_report.py" in the work-horse directory"""
@@ -60,141 +56,181 @@ def checkDRs(depths):
 ########
 ##MAIN##
 ########
+#megapipe-core.py SAMN00013086 dataNCBI_table_identification_strains.txt fastq/ results/ /n/scratch2/lf61/mp/
 
 if(len(sys.argv) != 6):
-	print("::usage: {} <tag> <fastq_file1> <fastq_file2> <scratch_dir> <output_dir>".format(sys.argv[0]))
-	sys.exit()
+    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <dir_logs> ".format(sys.argv[0]))
+    sys.exit()
 
 tag=sys.argv[1]
-fqf1 = sys.argv[2]
-fqf2 = sys.argv[3]
-scratch_dir=sys.argv[4]
-out_dir=sys.argv[5]
+table=sys.argv[2]
+dir_fastq=sys.argv[3]
+out_dir=sys.argv[4]
+scratch_dir=sys.argv[5]
+log_dir=sys.argv[5]
 
 #I read the configuration file
 data_json=detect_cfg_file()
 
-file_log=out_dir+"/"+tag+"/{}.out".format(tag)
+# the log file will the the following
+file_log=log_dir+"/"+tag+"/{}.out".format(tag)
 
+# I create new directories (if they do not exist)
 if not path.exists(out_dir):
-	makedirs(out_dir)
+    makedirs(out_dir)
 if not path.exists(scratch_dir):
-	makedirs(scratch_dir)
+    makedirs(scratch_dir)
 if not path.exists(out_dir+"/"+tag+"/"):
-	makedirs(out_dir+"/"+tag+"/")
+    makedirs(out_dir+"/"+tag+"/")
+if not path.exists(log_dir):
+    makedirs(log_dir)
 
 #I check if the reference is ok. If so, I index it (if needed).
 if path.isfile(data_json["fasta_ref"]):
-	if path.isfile(data_json["fasta_ref"]+".bwt"):
-		write_msg(file_log,"--->I detected the index of the reference. I do not generate a new index")
-	else:
-		write_msg(file_log,"--->I did not detect the index of the reference. I will generate it")
-		cmd="bwa index "+data_json["fasta_ref"]
-		system(cmd)
+    if path.isfile(data_json["fasta_ref"]+".bwt"):
+        write_msg(file_log,"--->I detected the index of the reference. I do not generate a new index")
+    else:
+        write_msg(file_log,"--->I did not detect the index of the reference. I will generate it")
+        cmd="bwa index "+data_json["fasta_ref"]
+        system(cmd)
+
+# I get the data about my strain
+runs_to_analyze=[]
+with open(table,"r") as inp:
+    fields=inp.readline().rstrip("\n").split("\t")
+    try:
+        idx_public_xref=fields.index("public_xref")
+        public_xref=entry[idx_public_xref]
+    except:
+        try:
+            idx_internal_xref=fields.index("internal_xref")
+            internal_xref=entry[idx_internal_xref]
+        except:
+            print("[ERROR] I did not find neither the public_xref nor the internal_xref")
+    for line in inp:
+        if line =="\n":
+            continue
+        entry=line.rstrip("\n").split("\t")
+        if "public_xref" in vars():
+            if public_xref==tag:
+                # I get the runs
+                idx_runs=fields.index("runs")
+                runs=entry[idx_runs].split(",")
+                # I reformat the information
+                for run in runs:
+                    current_run_formatted=run+":"+dir_fastq+"/"+run+"_1.fastq.gz,"+run+"_2.fastq.gz"
+                    runs_to_analyze.append(current_run_formatted)
+        if "internal_xref" in vars():
+            if internal_xref==tag:
+                # I get the runs
+                idx_runs=fields.index("internal_fastq_files")
+                internal_runs=list(entry[idx_runs])
+                runs_to_analyze.extend(internal_runs)
+
+# Now foreach run I unzip it, I check that the fastq files are ok.
 
 #I unzip the fastq files in a directory on scratch2
-write_msg(file_log,"--->Unzipping fastq files (on scratch2)")
-cmd="zcat {0} > {1}/{2}_1.fastq".format(fqf1, scratch_dir, tag)
-print(cmd)
-system(cmd)
-cmd="zcat {0} > {1}/{2}_2.fastq".format(fqf2, scratch_dir, tag)
-print(cmd)
-system(cmd)
+write_msg(file_log,"--->Unzipping fastq files (on {})".format(scratch_dir))
 
-#I rename the variables fqf1 and fqf2 since the fastq I will use are the ones on the scratch, so that I do not touch the original ones
-fqf1 = scratch_dir +"/" + tag + "_1.fastq"
-fqf2 = scratch_dir +"/" + tag + "_2.fastq"
+# I will use this dictionary to flag the runs (0=everything is fine, 1=there is a problem, so the run will be excluded)
+flag_runs={}
+
+for run in runs_to_analyze:
+
+    # I get the info about this run
+    general_info=run.split(":")
+    fastq_files=general_info[1].split(",")
+
+    # the flag is 0 for now.
+    flag_runs[general_info[0]]=0
+
+    # I unzip the fastq files of this run
+    #I unzip the fastq files in a directory on scratch2
+    write_msg(file_log,"----->Unzipping fastq files for run {0} (on {1})".format(general_info[0],scratch_dir))
+    cmd="zcat {0} > {1}/{2}_1.fastq".format(fastq_files[0], scratch_dir, general_info[0])
+    system(cmd)
+    cmd="zcat {0} > {1}/{2}_2.fastq".format(fastq_files[1], scratch_dir, general_info[0])
+    system(cmd)
+
+    #I rename the variables fqf1 and fqf2 since the fastq I will use are the ones on the scratch, so that I do not touch the original ones
+    fqf1 = scratch_dir +"/" + general_info[0] + "_1.fastq"
+    fqf2 = scratch_dir +"/" + general_info[0] + "_2.fastq"
+
+    #I check the fasta files
+    write_msg(file_log,"----->Checking fastq files for run {0}".format(general_info[0]))
+    if(valFQ(fqf1,fqf2)):
+        write_msg(file_log,"[INFO] Fastq files are valid for run {}".format(general_info[0]))
+    else:
+        write_msg(file_log,"[WARNING] Fastq files are NOT valid for run {}".format(general_info[0]))
+        flag_runs[run]=1
+        continue
+
+    # I check the names of the reads
+    write_msg(file_log,"--->Checking the names of the reads for run {}".format(general_info[0]))
+    test_names1=detect_weird_read_names(fqf1)
+    test_names2=detect_weird_read_names(fqf2)
+    if((test_names1==True) or (test_names2==True)):
+        write_msg(file_log,"[INFO] I found some weird names. I am fixing them!")
+        cmd="megapipe-check-names.py {}".format(fqf1)
+        system(cmd)
+        cmd="megapipe-check-names.py {}".format(fqf2)
+        system(cmd)
+    else:
+        write_msg(file_log,"[INFO] No weird names!")
+
+    # I trim the reads with Prinseq -- this should happen in the scratch in order to save space
+    write_msg(file_log,"----->Trimming with Prinseq (run {})".format(general_info[0]))
+    path_to_prinseq=data_json["prinseq"]
+    cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}-trimmed -out_bad null -log {4}/{3}-prinseq.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, scratch_dir, run,log_dir)
+    print(cmd)
+    system(cmd)
+    write_msg(file_log,"[INFO] Please see the Prinseq report in {4}/{3}-prinseq.log".format(log_dir, run))
+    # I check if the trimming went well.
+    trflstem1 = run + "-trimmed_1.fastq"
+    trflstem2 = run + "-trimmed_2.fastq"
+    trfl1 = scratch_dir + "/" + trflstem1
+    trfl2 = scratch_dir + "/" + trflstem2
+    files = glob(scratch_dir+"/"+run+"-trimmed*")
+    if(not(trflstem1 in files and trflstem2 in files)):
+        write_msg(file_log, "Prinseq failed.")
+        flag_runs[run]=1
+        continue
+    #sctrfl = scratchtrimmedfile // I am aware these two lines are not useful. Please remove them.
+    sctrfl1 = scratch_dir +"/" + trflstem1
+    sctrfl2 = scratch_dir + "/" + trflstem2
+
+    # I classify the reads with Kraken
+    write_msg(file_log,"----->Classifying reads with Kraken")
+    path_to_krakendb=data_json["kraken_db"]
+    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, scratch_dir + "/" + trflstem1 + .krkn, path_to_krakendb)
+    e=sbp.check_output(cmd,shell=True)
+    mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
+    tbperc1 = float(mat.groups()[1]) / 100
+    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl2, scratch_dir + "/" + trflstem2 + .krkn, path_to_krakendb)
+    e=sbp.check_output(cmd,shell=True)
+    mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
+    tbperc2 = float(mat.groups()[1]) / 100
+    write_msg(file_log,"[INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
+    # We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
+    if(tbperc1 < 0.9):
+        write_msg(file_log,"Less than 90% of reads in the first fastq file belonged to mycobacterium tuberculosis")
+        flag_runs[run]=1
+        continue
+    if(tbperc2 < 0.9):
+        write_msg(file_log,"Less than 90% of reads in the second fastq file belonged to mycobacterium tuberculosis")
+        flag_runs[run]=1
+        continue
+
+# Now I can combine the runs that succeeded
+fq_comb1=scratch_dir + "/" + tag+"combined_1.fastq"
+fq_comb2=scratch_dir + "/" + tag+"combined_2.fastq"
+for run in flag_runs:
+    if(flag_runs[run]==0):
+        
 
 
-#I check the fasta files
-write_msg(file_log,"--->Checking fastq files")
-
-if(valFQ(fqf1,fqf2)):
-	write_msg(file_log,"[INFO] Fastq files are valid!")
-else:
-	write_msg(file_log,"[PROBLEM] Not valid fastq files.")
-	write_msg(file_log,"Exiting now...\n")
-	sys.exit()
 
 
-write_msg(file_log,"--->Checking the names of the reads")
-
-test_names1=detect_weird_read_names(fqf1)
-test_names2=detect_weird_read_names(fqf2)
-if((test_names1==True) or (test_names2==True)):
-	write_msg(file_log,"[INFO] I found some weird names. I am fixing them!")
-	cmd="megapipe-check-names.py {}".format(fqf1)
-	system(cmd)
-	cmd="megapipe-check-names.py {}".format(fqf2)
-	system(cmd)
-
-else:
-	write_msg(file_log,"[INFO] No weird names!")
-
-
-
-write_msg(file_log,"--->Trimming with Prinseq")
-path_to_prinseq=data_json["prinseq"]
-cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}/{3}-trimmed -out_bad null -log {2}/{3}/{3}-trimmed.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, out_dir, tag)
-print(cmd)
-system(cmd)
-
-write_msg(file_log,"[INFO] Please see the Prinseq report in {0}/{1}/{1}-trimmed.log".format(out_dir, tag))
-
-trflstem1 = tag + "-trimmed_1.fastq"
-trflstem2 = tag + "-trimmed_2.fastq"
-trfl1 = out_dir + "/" + tag + "/" + trflstem1
-trfl2 = out_dir + "/" + tag + "/" + trflstem2
-
-#cmd="cp {0} {1}".format(fqf1,trfl1)
-#system(cmd)
-#cmd="cp {0} {1}".format(fqf2,trfl2)
-#system(cmd)
-
-files = listdir(out_dir+"/"+tag+"/")
-if(not(trflstem1 in files and trflstem2 in files)):
-	write_msg(file_log, "Prinseq failed.")
-	write_msg(file_log, "Exiting now...")
-	sys.exit()
-
-write_msg(file_log,"--->Moving trimmed fastq files to scratch")
-cmd="mv {0} {1}/".format(trfl1,scratch_dir)
-print(cmd)
-system(cmd)
-cmd="mv {0} {1}/".format(trfl2,scratch_dir)
-print(cmd)
-system(cmd)
-
-
-#sctrfl = scratchtrimmedfile
-sctrfl1 = scratch_dir +"/" + trflstem1
-sctrfl2 = scratch_dir + "/" + trflstem2
-
-
-write_msg(file_log,"--->Classifying reads with Kraken")
-path_to_krakendb=data_json["kraken_db"]
-piper = sbp.Popen(["kraken", "--fastq-input", sctrfl1, "--output", out_dir + "/" + tag + "/" + trflstem1 + ".krkn", "--db", path_to_krakendb], stderr = sbp.PIPE, stdout = sbp.PIPE) # help from https://docs.python.org/2/library/subprocess.html#subprocess.Popen and Mr. Martin Owens
-(o, e) = piper.communicate()
-mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
-tbperc1 = float(mat.groups()[1]) / 100
-
-piper = sbp.Popen(["kraken", "--fastq-input", sctrfl2, "--output", out_dir + "/" + tag + "/" + trflstem2 + ".krkn", "--db", path_to_krakendb], stderr = sbp.PIPE, stdout = sbp.PIPE) # help from https://docs.python.org/2/library/subprocess.html#subprocess.Popen and Mr. Martin Owens
-(o, e) = piper.communicate()
-mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
-tbperc2 = float(mat.groups()[1]) / 100
-
-write_msg(file_log,"[INFO] Please see the Kraken report in {0}/{1}/{2}.krkn and {0}/{1}/{3}.krkn".format(out_dir, tag, trflstem1, trflstem2))
-
-# We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
-if(tbperc1 < 0.9):
-	write_msg(file_log,"Less than 90% of reads in the first fastq file belonged to mycobacterium tuberculosis")
-	write_msg(file_log,"Exiting now...")
-	sys.exit()
-
-if(tbperc2 < 0.9):
-	write_msg(file_log,"Less than 90% of reads in the second fastq file belonged to mycobacterium tuberculosis")
-	write_msg(file_log,"Exiting now...")
-	sys.exit()
 
 write_msg(file_log,"--->Aligning reads with bwa")
 samfile = scratch_dir + "/{}.sam".format(tag)

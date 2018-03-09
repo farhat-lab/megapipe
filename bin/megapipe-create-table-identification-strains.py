@@ -21,7 +21,6 @@ def generateTableIdenficationFromScratch(fileIn,fileOut):
                         print("[ERROR] Duplicate id detected! Skipping {}".format(entry[idx]))
                         continue
                     entry[-2]=entry[idx]
-                    entry[-1]=entry[idx]
                 else:
                     idx=fields.index("runs")
                     runs=entry[idx].split(",")
@@ -30,7 +29,6 @@ def generateTableIdenficationFromScratch(fileIn,fileOut):
                             print("[ERROR] Duplicate id detected! Skipping {}".format(entry[idx]))
                             continue
                         entry[-2]=entry[idx]
-                        entry[-1]=entry[idx]
                     else:
                         idx=fields.index("query_run")
                         print("[ERROR] Skipping {}".format(entry[idx]))

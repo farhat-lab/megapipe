@@ -1,43 +1,65 @@
 #!/usr/bin/env python
 
 import os
+from os import listdir
 import sys
 from sys import argv
 from gridmanager import gridpuppeteer as gp
 
 if(len(argv) != 7):
-	print("::usage: {} <file_in> <out_dir> <scratch_dir> <startindex> <endindex> <runmode>".format(argv[0]))
-	sys.exit()
+    print("::usage: {} <table_identification_strains> <fastq_dir> <output_dir> <scratch_dir> <jobs_to_launch> <dir_logs>".format(argv[0]))
+    sys.exit()
 
 #I initialize the variables
-file_in=argv[1]
-out_dir=argv[2]
-scratch_dir=argv[3]
-starti = int(argv[4]) - 1
-endi = int(argv[5]) - 1
-
-inputer = open(file_in)
-info = inputer.read().split("\n")
-inputer.close()
+table=argv[1]
+fastq_dir=argv[2]
+dir_results=argv[3]
+scratch_dir=argv[4]
+num_jobs_to_launch=argv[5]
+#directory with the scripts for slurm and the logs
+dir_logs=argv[6]
 
 grid_obj=gp.GridEngine()
-#If runmode==0 (I generate the scripts)
-if(argv[-1] == "0"):
-	if not os.path.exists(out_dir+"/commands"):
-		os.makedirs(out_dir+"/commands")
-	for i in range(starti, endi + 1):
-		details=info[i].split("\t")
-		script_name=out_dir+"/commands/"+"job_{}.sh".format(details[0])
-		out_file=out_dir +"/{0}/{0}.job".format(details[0])
-		cmd="megapipe-core.py {} {} {} {} {}\n".format(details[0], details[1], details[2], scratch_dir, out_dir)
-		grid_obj.generate_script(script_name, "short", "12:00", out_file, "35000", cmd)
-#If runmode==1 (I launch the scripts)
-elif(argv[-1] == "1"):
-	for i in range(starti, endi + 1):
-		details=info[i].split("\t")
-		script_name=out_dir + "/commands/" + "job_{}.sh".format(details[0])
-		grid_obj.launch_job(script_name)
-else:
-	print("Invalid runmode: " + argv[3])
+if not os.path.exists(dir_logs):
+    os.makedirs(dir_logs+"/commands")
+
+# I get the data about the strains that have already been analyzed
+already_done=listdir(dir_results+"/")
+# I determine which strains I have to analyze
+to_analyze=[]
+with open(table,"r") as inp:
+    fields=inp.readline().rstrip("\n").split("\t")
+    if "public_xref" in fields:
+        idx_public_xref=fields.index("public_xref")
+    if "internal_xref" in fields:
+        idx_internal_xref=fields.index("internal_xref")
+    for line in inp:
+        if line =="\n":
+            continue
+        entry=line.rstrip("\n").split("\t")
+        if("idx_public_xref" in vars()):
+            public_xref=entry[idx_public_xref]
+            if((public_xref!="") and (public_xref not in already_done)):
+                to_analyze.append(public_xref)
+        else:
+            if("idx_internal_xref" in vars()):
+                internal_xref=entry[idx_internal_xref]
+                if((internal_xref!="") and (internal_xref not in already_done)):
+                    to_analyze.append(internal_xref)
+            else:
+                print("[ERROR] An entry does not have neither a public_xref nor an internal_xref")
+                print(line.rstrip("\n"))
+
+num_jobs_to_launch=int(num_jobs_to_launch)
+if(num_jobs_to_launch > len(to_analyze)): 
+    num_jobs_to_launch=len(to_analyze)
+for i in range(0, num_jobs_to_launch):
+		script_name=dir_logs+"/commands/"+"job_{}.sh".format(to_analyze[i])
+		out_file=dir_logs +"/{0}/{0}.job".format(to_analyze[i])
+		cmd="megapipe-core.py {} {} {} {} {}\n".format(to_analyze[i], table, fastq_dir, dir_results, scratch_dir)
+		grid_obj.generate_script(script_name, "short", "12:00", dir_results, "35G", cmd)
+for i in range(0, num_jobs_to_launch):
+		script_name=dir_logs + "/commands/" + "job_{}.sh".format(to_analyze[i])
+#		grid_obj.launch_job(script_name)
 
 

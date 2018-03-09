@@ -49,7 +49,8 @@ In order to download the metadata from runs that are available on NCBI you can r
  #megapipe-download-metadata-from-ncbi.py <txt_with_run_ids> <tag_dest_files>
  megapipe-download-metadata-from-ncbi.py toDownload.txt dataNCBI
 
-Two files will be generated: one (<tag>.txt with the raw text data and one <tag>_tab.txt with the data in tabular format.)
+Two files will be generated: one (<tag>.txt with the raw text data and one <tag>_tab.txt with the data in tabular format).
+
 Note: on o2 you may need to load the perl module in order to use this script since eutils, the tools that retrieve the data from NCBI are written in operl. 
 ::
  module load gcc/6.2.0 perl/5.24.0
@@ -64,6 +65,7 @@ In order to create a new table for strain identification, you can run the follow
  megapipe-create-table-identification-strains.py dataNCBI_tab.txt dataNCBI_table_identification_strains.txt
 
 Notes: 
+
  * if you create a brand new table, please start tracking the changes with git. So that if something goes wrong you have the chance to go back.
  * you are supposed to create a this table starting from public data. If you want to start from your own data, please change this script.
 
@@ -88,7 +90,7 @@ Each sequencing run included into "internal_fastq_files" should have the followi
  <run_name>:<fastq1>,<fastq2>
 If there are multiple runs, the synthax becomes the following:
 ::
- <run_A>:<fastq1>,<fastq2>;<run_nameB>:<fastq1>,<fastq2>
+ <run_nameA>:<fastq1>,<fastq2>;<run_nameB>:<fastq1>,<fastq2>
 
 Downloading data for public strains (NCBI)
 ######################################
@@ -104,6 +106,7 @@ Notes:
  * are you worried about the internal strains? You should have already set the internal_fastq_files variable for these runs, right (see above)? If that's the case, you are all set!
 
 In order to download fastq files from NCBI you can use two utilities:
+
  * megapipe-download-fastq-from-ncbi.py
  * megapipe-download-fastq-from-ncbi-HT-o2.py
 
@@ -120,7 +123,7 @@ In order to download the runs, open an interactive session and choose the number
 Then run the script:
 ::
  # synthax: megapipe-download-fastq-from-ncbi.py <txt_file_with_run_ids> <dest_directory> <num_of_threads>
- megapipe-download-fastq-from-ncbi.py toDownload.txt fastq 3
+ megapipe-download-fastq-from-ncbi.py runsToDownload.txt fastq 3
 
 Note: it takes 45m to download three runs. 
 
@@ -134,40 +137,25 @@ First you need to have a text file with the run ids you want to download. For in
 Now you can run the script:
 ::
  # synthax: megapipe-download-fastq-from-ncbi-HT-o2.py <txt_file_with_run_ids> <dest_directory> <directory_log_files>
- megapipe-download-fastq-from-ncbi-HT-o2.py toDownload.txt fastq/ logs
+ megapipe-download-fastq-from-ncbi-HT-o2.py runsToDownload.txt fastq/ logs
 
+In order to check if the download finished or not, please use the "squeue" command:
+::
+ #squeue|grep <your_username>
+ squeue|grep lf61
 
-(1) load the python3 module and create a directory where you want to store your data
-```
-module load dev/python/3.4.2
-mkdir mp_out
-cd mp_out
-```
+Generating all genomic data
+#########################
 
-(3) Generate the list of the files to analyze. 
+Create a directory where you want to store your data (if you did not do it before)
+::
+ mkdir results
+ cd results
 
+Run the pipeline
 Here is the general synthax  of the command:
-```
-megapipe-generate-acclist.py <dir_fastq> <tag_pair_end_fastq1> <extension_fastq1> > <output_file>
-```
-Here is an example of how to run the command:
-
-```
-megapipe-generate-acclist.py ../fastq_db/reseqtb/IS-1001/ _1 _1.fastq.gz > acclist2.0
-```
-
-The output file of generate-acclist.py is a tab separated value file (acclist file or accession list file) that contains the tag of the genome and the absolute paths of the 2 fastq files. The tag is automatically generated from the fastq file names. Here is one line of a sample acclist file:
-```
-00R0025 ../fastq_db/pools/00-R0025.1.fastq.gz   ../fastq_db/pools/00-R0025.2.fastq.gz
-
-```
-
-
-(4) Run the pipeline
-Here is the general synthax  of the command:
-```
-megapipe-launch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 0
-megapipe-launch.py <acclist_file> <output_dir> <scratch_dir> <first_genome> <last_genome> 1
+::
+ megapipe-launch.py <table_identification_strains> <fastq_dir> <output_dir> <scratch_dir> <jobs_to_launch>  
 
 ```
 You need two commands because the first one generates the scripts that will be run on orchestra (runmode 0), while the second command actually launches the jobs (runmode 1).
