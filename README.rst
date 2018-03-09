@@ -157,22 +157,7 @@ Here is the general synthax  of the command:
 ::
  megapipe-launch.py <table_identification_strains> <fastq_dir> <output_dir> <scratch_dir> <jobs_to_launch>  
 
-```
-You need two commands because the first one generates the scripts that will be run on orchestra (runmode 0), while the second command actually launches the jobs (runmode 1).
-Here is an example of how to run the command in real life:
-
-```
-megapipe-launch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 0
-megapipe-launch.py acclist2.0 test6 /n/scratch2/lf61/mp/ 1 1 1
-```
-acclist2.0 is the accession list file you generated in the step (3); "test6" is your output directory where the results will be stored; "/n/scratch2/lf61/mp/" is a directory in the scratch that will contain your partial results (please be sure that this directory exists and it is writable).
-
-In the example I proposed, the first and the last genomes variables are both set at 1, so it means that megapipe will read only the first entry of your acclist file and analyze it. If you want to analyze more entries or you want to skip some genomes, you can change these parameters. 
-
 For instance here is an example that show how to launch a megapipe analysis for all the genomes of a dataset of the RESEQTB project:
-```
-megapipe-launch.py 00-metadata/reseqtb-RESEQTB_Dec16-acclist.tsv 01-mp_out/ /n/scratch2/lf61/mp/ 1 2432 1
-```
 
 **GOOD LUCK for your analyses!**
 
