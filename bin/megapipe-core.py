@@ -5,7 +5,6 @@ from os import popen, system, listdir, getcwd, path, environ, makedirs
 import re
 import subprocess as sbp
 import json
-from glob import glob
 import pkg_resources
 
 def detect_cfg_file():
@@ -77,12 +76,6 @@ log_dir=sys.argv[6]
 #I read the configuration file
 data_json=detect_cfg_file()
 
-# the log file will the the following
-file_log=out_dir+"/"+tag+"/{}.out".format(tag)
-
-# I log the version of megapipe I am using
-write_msg(file_log,"[INFO] I am using megapipe v{}".format(pkg_resources.get_distribution("megapipe").version))
-
 # I create new directories (if they do not exist)
 if not path.exists(out_dir):
     makedirs(out_dir)
@@ -93,15 +86,19 @@ if not path.exists(out_dir+"/"+tag+"/"):
 if not path.exists(log_dir):
     makedirs(log_dir)
 
+# the log file will the the following
+file_log=out_dir+"/"+tag+"/{}.out".format(tag)
 
+# I log the version of megapipe I am using
+write_msg(file_log,"[INFO] I am using megapipe v{}".format(pkg_resources.get_distribution("megapipe").version))
 
 #I check if the reference is ok. If so, I index it (if needed).
 write_msg(file_log,"[INFO] Indexing the reference")
 if path.isfile(data_json["fasta_ref"]):
     if path.isfile(data_json["fasta_ref"]+".bwt"):
-        write_msg(file_log,"  [INFO] I detected the index of the reference. I do not generate a new index")
+        write_msg(file_log,"..[INFO] I detected the index of the reference. I do not generate a new index")
     else:
-        write_msg(file_log,"  [INFO]I did not detect the index of the reference. I will generate it")
+        write_msg(file_log,"..[INFO]I did not detect the index of the reference. I will generate it")
         cmd="bwa index "+data_json["fasta_ref"]
         system(cmd)
 
@@ -129,7 +126,7 @@ with open(table,"r") as inp:
         except:
             has_internal_xref=False
         if not (has_public_xref or has_internal_xref):
-            print("    [ERROR] I did not find neither the public_xref nor the internal_xref")
+            print("..[ERROR] I did not find neither the public_xref nor the internal_xref")
             sys.exit()
         if "public_xref" in vars():
             if public_xref==tag:
@@ -150,7 +147,7 @@ with open(table,"r") as inp:
 # Now foreach run I unzip it, I check that the fastq files are ok.
 
 #I unzip the fastq files in a directory on scratch2
-write_msg(file_log,"[INFO] checking the runs")
+write_msg(file_log,"[INFO] Checking the runs")
 
 # I will use this dictionary to  the runs (0=everything is fine, 1=there is a problem, so the run will be excluded)
 data_runs={}
@@ -174,13 +171,13 @@ for current_run in runs_to_analyze:
 
     # I unzip the fastq files of this run
     #I unzip the fastq files in a directory on scratch2
-    write_msg(file_log,"  [INFO] Unzipping fastq files for run {0} (on {1})".format(general_info[0],scratch_dir))
+    write_msg(file_log,"..[INFO] Unzipping fastq files for run {0} (on {1})".format(general_info[0],scratch_dir))
     cmd="zcat {0} > {1}/{2}_1.fastq".format(fastq_files[0], scratch_dir, general_info[0])
     print(cmd)
     try:
         o=sbp.check_output(cmd,shell=True)
     except:
-        write_msg(file_log,"    [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+        write_msg(file_log,"....[WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
     cmd="zcat {0} > {1}/{2}_2.fastq".format(fastq_files[1], scratch_dir, general_info[0])
@@ -188,7 +185,7 @@ for current_run in runs_to_analyze:
     try:
         o=sbp.check_output(cmd,shell=True)
     except:
-        write_msg(file_log,"    [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+        write_msg(file_log,"....[WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
 
@@ -197,43 +194,45 @@ for current_run in runs_to_analyze:
     fqf2 = scratch_dir +"/" + general_info[0] + "_2.fastq"
 
     #I check the fasta files
-    write_msg(file_log,"  [INFO] Checking fastq files for run {0}".format(general_info[0]))
+    write_msg(file_log,"..[INFO] Checking fastq files for run {0}".format(general_info[0]))
     try:
         valFQ(fqf1,fqf2)
-        write_msg(file_log,"    [INFO] Fastq files are valid for run {}".format(general_info[0]))
+        write_msg(file_log,"....[INFO] Fastq files are valid for run {}".format(general_info[0]))
     except:
-        write_msg(file_log,"    [WARNING] Fastq files are NOT valid for run {}".format(general_info[0]))
+        write_msg(file_log,"....[WARNING] Fastq files are NOT valid for run {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
 
     # I check the names of the reads
-    write_msg(file_log,"  [INFO] Checking the names of the reads for run {}".format(general_info[0]))
+    write_msg(file_log,"..[INFO] Checking the names of the reads for run {}".format(general_info[0]))
     test_names1=detect_weird_read_names(fqf1)
     test_names2=detect_weird_read_names(fqf2)
     if((test_names1==True) or (test_names2==True)):
-        write_msg(file_log,"    [INFO] I found some weird names. I am fixing them!")
+        write_msg(file_log,"....[INFO] I found some weird names. I am fixing them!")
         cmd="megapipe-check-names.py {}".format(fqf1)
         system(cmd)
         cmd="megapipe-check-names.py {}".format(fqf2)
         system(cmd)
     else:
-        write_msg(file_log,"    [INFO] No weird names!")
+        write_msg(file_log,"....[INFO] No weird names!")
 
     # I trim the reads with Prinseq -- this should happen in the scratch in order to save space
-    write_msg(file_log,"  [INFO] Trimming with Prinseq (run {})".format(general_info[0]))
+    write_msg(file_log,"..[INFO] Trimming reads with Prinseq (run {})".format(general_info[0]))
+    if not path.exists(out_dir+"/"+tag+"/prinseq"):
+        makedirs(out_dir+"/"+tag+"/prinseq")
     path_to_prinseq=data_json["prinseq"]
-    cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}-trimmed -out_bad null -log {4}/{3}-prinseq.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, scratch_dir, run,log_dir)
+    cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}-trimmed -out_bad null -log {4}/{5}/prinseq/{3}-prinseq.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, scratch_dir,run,out_dir,tag)
     print(cmd)
-    system(cmd)
-    write_msg(file_log,"    [INFO] Please see the Prinseq report in {0}/{1}-prinseq.log".format(log_dir, run))
+    o=sbp.check_output(cmd,shell=True)
+    write_msg(file_log,"....[INFO] Please see the Prinseq report in {0}/{1}/prinseq/{2}-prinseq.log".format(out_dir,tag, run))
     # I check if the trimming went well.
     trflstem1 = run + "-trimmed_1.fastq"
     trflstem2 = run + "-trimmed_2.fastq"
     trfl1 = scratch_dir + "/" + trflstem1
     trfl2 = scratch_dir + "/" + trflstem2
-    files = glob(scratch_dir+"/"+run+"-trimmed*")
+    files = listdir(scratch_dir+"/")
     if(not(trflstem1 in files and trflstem2 in files)):
-        write_msg(file_log, "    [WARNING] Prinseq failed. Please have a look at the log file")
+        write_msg(file_log, "....[WARNING] Prinseq failed. Please have a look at the log file")
         data_runs[run]["flag"]=1
         continue
     #sctrfl = scratchtrimmedfile // I am aware these two lines are not useful. Please remove them.
@@ -241,25 +240,25 @@ for current_run in runs_to_analyze:
     sctrfl2 = scratch_dir + "/" + trflstem2
 
     # I classify the reads with Kraken
-    write_msg(file_log,"  [INFO] Classifying reads with Kraken")
+    write_msg(file_log,"..[INFO] Classifying reads with Kraken")
     path_to_krakendb=data_json["kraken_db"]
     cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, scratch_dir + "/" + trflstem1 + ".krkn", path_to_krakendb)
-    e=sbp.check_output(cmd,shell=True)
+    e=sbp.check_output(cmd,shell=True,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc1 = float(mat.groups()[1]) / 100
     cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl2, scratch_dir + "/" + trflstem2 + ".krkn", path_to_krakendb)
-    e=sbp.check_output(cmd,shell=True)
+    e=sbp.check_output(cmd,shell=True,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
-    write_msg(file_log,"  [INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
+    write_msg(file_log,"..[INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
     # We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
     # write doen in the log tbperc1 and 2
     if(tbperc1 < 0.9):
-        write_msg(file_log,"  [WARNING] Less than 90% of reads in the first fastq file belonged to Mycobacterium tuberculosis")
+        write_msg(file_log,"..[WARNING] Less than 90% of reads in the first fastq file belonged to Mycobacterium tuberculosis")
         data_runs[run]["flag"]=1
         continue
     if(tbperc2 < 0.9):
-        write_msg(file_log,"  [WARNING] Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
+        write_msg(file_log,"..[WARNING] Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
         data_runs[run]["flag"]=1
         continue
 
@@ -304,7 +303,7 @@ path_to_qualimap=data_json["qualimap"]
 system(path_to_qualimap + " bamqc -bam {0} --outfile {1}.pdf --outformat PDF".format(bamfile, tag))
 qdir = scratch_dir + "/" + bamfile[bamfile.rindex("/") + 1:-4] + "_stats"
 system("mv {0} {1}".format(bamfile.replace(".bam", "_stats"), qdir))
-write_msg(file_log,"  [INFO] Please see the Qualimap report in {}".format(qdir))
+write_msg(file_log,"..[INFO] Please see the Qualimap report in {}".format(qdir))
 
 # Removing duplicates
 write_msg(file_log,"[INFO] Removing duplicates from bam file with Picard")
@@ -331,7 +330,7 @@ refcov = 0
 for d in depths:
 	if(d > 0):
 		refcov += 1
-write_msg(file_log,"  [INFO] Percent of reference genome covered: {}".format(refcov / len(depths)))
+write_msg(file_log,"..[INFO] Percent of reference genome covered: {}".format(refcov / len(depths)))
 
 write_msg(file_log,"[INFO] Indexing {}".format(drbamfile))
 system("samtools index {}".format(drbamfile))
