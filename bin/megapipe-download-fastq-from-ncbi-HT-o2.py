@@ -29,7 +29,7 @@ with open(fileIn,"r") as inp:
             outf.write("fastq-dump --split-files --gzip $path -O {}\n".format(destDir))
 print("[INFO] I submit the jobs to o2")
 for script in glob(dirLogsFromGridEngine+"/"+"*_cmds.sh"):
-    cmd="sbatch -p short -n 1 -t 10:00 --mem 50M -o {0}.out -e {0}.err {0}".format(script)
+    cmd="sbatch -p short -n 1 -t 10:00 --mem 2G -o {0}.out -e {0}.err {0}".format(script)
     print("Command: "+cmd)
     sbp.call(cmd,shell=True)
 print("Bye!")

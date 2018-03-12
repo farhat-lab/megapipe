@@ -125,7 +125,7 @@ First you need to have a text file with the run ids you want to download. For in
 Now you can run the script:
 ::
  # synthax: megapipe-download-fastq-from-ncbi-HT-o2.py <txt_file_with_run_ids> <dest_directory> <directory_log_files>
- megapipe-download-fastq-from-ncbi-HT-o2.py runsToDownload.txt fastq/ logs
+ megapipe-download-fastq-from-ncbi-HT-o2.py runsToDownload.txt /n/scratch2/lf61/fastq logs
 
 In order to check if the download finished or not, please use the "squeue" command:
 ::

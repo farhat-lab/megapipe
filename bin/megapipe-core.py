@@ -64,7 +64,7 @@ def checkDRs(depths):
 ########
     
 if(len(sys.argv) != 7):
-    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <dir_logs>".format(sys.argv[0]))
+    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <o2_logs>".format(sys.argv[0]))
     sys.exit()
 
 tag=sys.argv[1]
@@ -72,12 +72,13 @@ table=sys.argv[2]
 dir_fastq=sys.argv[3]
 out_dir=sys.argv[4]
 scratch_dir=sys.argv[5]
+#this directory stores the logs from o2 (output and error)
 log_dir=sys.argv[6]
 #I read the configuration file
 data_json=detect_cfg_file()
 
 # the log file will the the following
-file_log=log_dir+"/{}.out".format(tag)
+file_log=out_dir+"/"+tag+"/{}.out".format(tag)
 
 # I log the version of megapipe I am using
 write_msg(file_log,"[INFO] I am using megapipe v{}".format(pkg_resources.get_distribution("megapipe").version))
@@ -92,16 +93,22 @@ if not path.exists(out_dir+"/"+tag+"/"):
 if not path.exists(log_dir):
     makedirs(log_dir)
 
+
+
 #I check if the reference is ok. If so, I index it (if needed).
+write_msg(file_log,"[INFO] Indexing the reference")
 if path.isfile(data_json["fasta_ref"]):
     if path.isfile(data_json["fasta_ref"]+".bwt"):
-        write_msg(file_log,"--->I detected the index of the reference. I do not generate a new index")
+        write_msg(file_log,"  [INFO] I detected the index of the reference. I do not generate a new index")
     else:
-        write_msg(file_log,"--->I did not detect the index of the reference. I will generate it")
+        write_msg(file_log,"  [INFO]I did not detect the index of the reference. I will generate it")
         cmd="bwa index "+data_json["fasta_ref"]
         system(cmd)
 
+
+
 # I get the data about my strain
+write_msg(file_log,"[INFO] I am retrieving the data about the runs to analyze from {}".format(table))
 runs_to_analyze=[]
 with open(table,"r") as inp:
     fields=inp.readline().rstrip("\n").split("\t")
@@ -122,7 +129,7 @@ with open(table,"r") as inp:
         except:
             has_internal_xref=False
         if not (has_public_xref or has_internal_xref):
-            print("[ERROR] I did not find neither the public_xref nor the internal_xref")
+            print("    [ERROR] I did not find neither the public_xref nor the internal_xref")
             sys.exit()
         if "public_xref" in vars():
             if public_xref==tag:
@@ -143,7 +150,7 @@ with open(table,"r") as inp:
 # Now foreach run I unzip it, I check that the fastq files are ok.
 
 #I unzip the fastq files in a directory on scratch2
-write_msg(file_log,"--->Unzipping fastq files (on {})".format(scratch_dir))
+write_msg(file_log,"[INFO] checking the runs")
 
 # I will use this dictionary to  the runs (0=everything is fine, 1=there is a problem, so the run will be excluded)
 data_runs={}
@@ -158,6 +165,8 @@ for current_run in runs_to_analyze:
     # the flag is 0 for now.
     data_runs[run]={}
     data_runs[run]["flag"]={}
+    # Explanation for the flag: zero is good, one means that the run is not good
+    data_runs[run]["flag"]=0
     data_runs[run]["fq1"]={}
     data_runs[run]["fq1"]=fastq_files[0]
     data_runs[run]["fq2"]={}
@@ -165,48 +174,58 @@ for current_run in runs_to_analyze:
 
     # I unzip the fastq files of this run
     #I unzip the fastq files in a directory on scratch2
-    write_msg(file_log,"----->Unzipping fastq files for run {0} (on {1})".format(general_info[0],scratch_dir))
+    write_msg(file_log,"  [INFO] Unzipping fastq files for run {0} (on {1})".format(general_info[0],scratch_dir))
     cmd="zcat {0} > {1}/{2}_1.fastq".format(fastq_files[0], scratch_dir, general_info[0])
     print(cmd)
-    system(cmd)
+    try:
+        o=sbp.check_output(cmd,shell=True)
+    except:
+        write_msg(file_log,"    [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+        data_runs[run]["flag"]=1
+        continue
     cmd="zcat {0} > {1}/{2}_2.fastq".format(fastq_files[1], scratch_dir, general_info[0])
     print(cmd)
-    system(cmd)
+    try:
+        o=sbp.check_output(cmd,shell=True)
+    except:
+        write_msg(file_log,"    [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+        data_runs[run]["flag"]=1
+        continue
 
     #I rename the variables fqf1 and fqf2 since the fastq I will use are the ones on the scratch, so that I do not touch the original ones
     fqf1 = scratch_dir +"/" + general_info[0] + "_1.fastq"
     fqf2 = scratch_dir +"/" + general_info[0] + "_2.fastq"
 
     #I check the fasta files
-    write_msg(file_log,"----->Checking fastq files for run {0}".format(general_info[0]))
+    write_msg(file_log,"  [INFO] Checking fastq files for run {0}".format(general_info[0]))
     try:
         valFQ(fqf1,fqf2)
-        write_msg(file_log,"[INFO] Fastq files are valid for run {}".format(general_info[0]))
+        write_msg(file_log,"    [INFO] Fastq files are valid for run {}".format(general_info[0]))
     except:
-        write_msg(file_log,"[WARNING] Fastq files are NOT valid for run {}".format(general_info[0]))
+        write_msg(file_log,"    [WARNING] Fastq files are NOT valid for run {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
 
     # I check the names of the reads
-    write_msg(file_log,"--->Checking the names of the reads for run {}".format(general_info[0]))
+    write_msg(file_log,"  [INFO] Checking the names of the reads for run {}".format(general_info[0]))
     test_names1=detect_weird_read_names(fqf1)
     test_names2=detect_weird_read_names(fqf2)
     if((test_names1==True) or (test_names2==True)):
-        write_msg(file_log,"[INFO] I found some weird names. I am fixing them!")
+        write_msg(file_log,"    [INFO] I found some weird names. I am fixing them!")
         cmd="megapipe-check-names.py {}".format(fqf1)
         system(cmd)
         cmd="megapipe-check-names.py {}".format(fqf2)
         system(cmd)
     else:
-        write_msg(file_log,"[INFO] No weird names!")
+        write_msg(file_log,"    [INFO] No weird names!")
 
     # I trim the reads with Prinseq -- this should happen in the scratch in order to save space
-    write_msg(file_log,"----->Trimming with Prinseq (run {})".format(general_info[0]))
+    write_msg(file_log,"  [INFO] Trimming with Prinseq (run {})".format(general_info[0]))
     path_to_prinseq=data_json["prinseq"]
     cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}-trimmed -out_bad null -log {4}/{3}-prinseq.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, scratch_dir, run,log_dir)
     print(cmd)
     system(cmd)
-    write_msg(file_log,"[INFO] Please see the Prinseq report in {0}/{1}-prinseq.log".format(log_dir, run))
+    write_msg(file_log,"    [INFO] Please see the Prinseq report in {0}/{1}-prinseq.log".format(log_dir, run))
     # I check if the trimming went well.
     trflstem1 = run + "-trimmed_1.fastq"
     trflstem2 = run + "-trimmed_2.fastq"
@@ -214,7 +233,7 @@ for current_run in runs_to_analyze:
     trfl2 = scratch_dir + "/" + trflstem2
     files = glob(scratch_dir+"/"+run+"-trimmed*")
     if(not(trflstem1 in files and trflstem2 in files)):
-        write_msg(file_log, "Prinseq failed.")
+        write_msg(file_log, "    [WARNING] Prinseq failed. Please have a look at the log file")
         data_runs[run]["flag"]=1
         continue
     #sctrfl = scratchtrimmedfile // I am aware these two lines are not useful. Please remove them.
@@ -222,7 +241,7 @@ for current_run in runs_to_analyze:
     sctrfl2 = scratch_dir + "/" + trflstem2
 
     # I classify the reads with Kraken
-    write_msg(file_log,"----->Classifying reads with Kraken")
+    write_msg(file_log,"  [INFO] Classifying reads with Kraken")
     path_to_krakendb=data_json["kraken_db"]
     cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, scratch_dir + "/" + trflstem1 + ".krkn", path_to_krakendb)
     e=sbp.check_output(cmd,shell=True)
@@ -232,23 +251,28 @@ for current_run in runs_to_analyze:
     e=sbp.check_output(cmd,shell=True)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
-    write_msg(file_log,"[INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
+    write_msg(file_log,"  [INFO] Please see the Kraken report in {0}/{1}.krkn and {0}/{2}.krkn".format(out_dir, trflstem1, trflstem2))
     # We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
     # write doen in the log tbperc1 and 2
     if(tbperc1 < 0.9):
-        write_msg(file_log,"Less than 90% of reads in the first fastq file belonged to Mycobacterium tuberculosis")
+        write_msg(file_log,"  [WARNING] Less than 90% of reads in the first fastq file belonged to Mycobacterium tuberculosis")
         data_runs[run]["flag"]=1
         continue
     if(tbperc2 < 0.9):
-        write_msg(file_log,"Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
+        write_msg(file_log,"  [WARNING] Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
         data_runs[run]["flag"]=1
         continue
 
 # Now I can combine the runs that succeeded
 fq_comb1=scratch_dir + "/" + tag+"-combined_1.fastq"
 fq_comb2=scratch_dir + "/" + tag+"-combined_2.fastq"
+
+#I check that at least one run is OK. I define a variable to count the good runs
+runs_ok=0
+
 for run in data_runs:
     if(data_runs[run]["flag"]==0):
+        runs_ok=runs_ok+1
         trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
         trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
         cmd="cat {} >> {}".format(trflstem1,fq_comb1)
@@ -256,36 +280,40 @@ for run in data_runs:
         cmd="cat {} >> {}".format(trflstem2,fq_comb2)
         system(cmd)
 
+if runs_ok == 0:
+    write_msg(file_log,"[ERROR] I found some problems in each of the runs you provided. The analysis stops here")
+    sys.exit()
+
 # Aligning reads to the reference
-write_msg(file_log,"--->Aligning reads with bwa")
+write_msg(file_log,"[INFO] Aligning reads with bwa")
 samfile = scratch_dir + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 out=sbp.check_output("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],fq_comb1, fq_comb2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 write_msg(file_log,out)
 
 # Sorting and converting to bam
-write_msg(file_log,"--->Sorting sam file with Picard")
+write_msg(file_log,"[INFO] Sorting sam file with Picard")
 bamfile = scratch_dir + "/{}.sorted.bam".format(tag)
 path_to_picard=data_json["picard"]
 out=sbp.check_output("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 write_msg(file_log,out)
 
 # Quality control
-write_msg(file_log,"--->Evaluating mapping with Qualimap")
+write_msg(file_log,"[INFO] Evaluating mapping with Qualimap")
 path_to_qualimap=data_json["qualimap"]
 system(path_to_qualimap + " bamqc -bam {0} --outfile {1}.pdf --outformat PDF".format(bamfile, tag))
 qdir = scratch_dir + "/" + bamfile[bamfile.rindex("/") + 1:-4] + "_stats"
 system("mv {0} {1}".format(bamfile.replace(".bam", "_stats"), qdir))
-write_msg(file_log,"[INFO] Please see the Qualimap report in {}".format(qdir))
+write_msg(file_log,"  [INFO] Please see the Qualimap report in {}".format(qdir))
 
 # Removing duplicates
-write_msg(file_log,"--->Removing duplicates from bam file with Picard")
+write_msg(file_log,"[INFO] Removing duplicates from bam file with Picard")
 drbamfile = bamfile.replace(".bam", ".duprem.bam")
 out=sbp.check_output("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4])) # help from http://seqanswers.com/forums/showthread.php?t=13192
 write_msg(file_log,out)
 write_msg(file_log,"[INFO] Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
 
-write_msg(file_log,"--->Calculating depth")
+write_msg(file_log,"[INFO] Calculating depth")
 out = sbp.check_output("samtools depth -a " + drbamfile)
 dmat = re.findall("(.+\t)([0-9]+)(\n)", out)
 depths = [float(t[1]) for t in dmat]
@@ -295,27 +323,27 @@ depths = [float(t[1]) for t in dmat]
 gencovprop = checkDRs(depths)
 write_msg(file_log,"[INFO] The percent of H37Rv bases that have a coverage of at least 10x is {}.".format(str(gencovprop * 100)))
 if(gencovprop < 0.95): # The threshold is 95%
-	write_msg(file_log,"[PROBLEM] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
+	write_msg(file_log,"  [ERROR] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
 	sys.exit()
-fileout_depth=results_dir+"/"+tag+"/{}.depth".format(tag)
+fileout_depth=out_dir+"/"+tag+"/{}.depth".format(tag)
 write_msg(fileout_depth,dout)
 refcov = 0
 for d in depths:
 	if(d > 0):
 		refcov += 1
-write_msg(file_log,"[INFO] Percent of reference genome covered: {}".format(refcov / len(depths)))
+write_msg(file_log,"  [INFO] Percent of reference genome covered: {}".format(refcov / len(depths)))
 
-write_msg(file_log,"--->Indexing {}".format(drbamfile))
+write_msg(file_log,"[INFO] Indexing {}".format(drbamfile))
 system("samtools index {}".format(drbamfile))
 
 # I call the variants with pilon
-write_msg(file_log,"--->Variant calling with Pilon")
+write_msg(file_log,"[INFO] Variant calling with Pilon")
 path_to_pilon=data_json["pilon"]
 out=sbp.check_output("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, scratch_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]))
 write_msg("{0}/{1}/{1}-pilon.log".format(scratch_dir,tag),out)
 
 # I generate the assembly with spades
-write_msg(file_log,"--->Generating the assembly with Spades")
+write_msg(file_log,"[INFO] Generating the assembly with Spades")
 #-t (treads); -m (memory, in Gb)
 path_to_spades=data_json["spades"]
 sbp.check_output("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(fq_comb1,fq_comb2,scratch_dir,tag))
