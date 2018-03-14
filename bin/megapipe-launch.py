@@ -57,7 +57,7 @@ for i in range(0, num_jobs_to_launch):
 		script_name=dir_logs+"/commands/"+"job_{}.sh".format(to_analyze[i])
 		out_file=dir_logs +"/{0}.job".format(to_analyze[i])
 		cmd="megapipe-core.py {} {} {} {} {} {}\n".format(to_analyze[i], table, fastq_dir, dir_results, scratch_dir,dir_logs)
-		grid_obj.generate_script(script_name, "short", "12:00", out_file, "35G", cmd)
+		grid_obj.generate_script(script_name, "short", "12:00:00", out_file, "35G", cmd)
 for i in range(0, num_jobs_to_launch):
 		script_name=dir_logs + "/commands/" + "job_{}.sh".format(to_analyze[i])
 #		grid_obj.launch_job(script_name)
