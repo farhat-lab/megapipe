@@ -296,12 +296,13 @@ for current_run in runs_to_analyze:
         write_msg(file_log,"      + [WARNING] Less than 90% of reads in the second fastq file belonged to Mycobacterium tuberculosis")
         data_runs[run]["flag"]=1
         continue
-
     # I determine how good is this run
+    write_msg(file_log,"    - I count the reads and calculate the median read length")
     qual_metrics=medianLengthReadsAndReadCount(sctrfl1)
+    write_msg(file_log,"      + Num of reads: {}; Median read length: {} bp".format(qual_metrics[1],qual_metrics[0]))
     data_runs[run]["bp_coverage"]=qual_metrics[2]
 
-write_msg(file_log,":: I combine the sequencing runs")
+
 # Now I can combine the runs that succeeded
 fq_comb1=scratch_dir + "/" + tag+"-combined_1.fastq"
 fq_comb2=scratch_dir + "/" + tag+"-combined_2.fastq"
@@ -309,19 +310,43 @@ fq_comb2=scratch_dir + "/" + tag+"-combined_2.fastq"
 #I check that at least one run is OK. I define a variable to count the good runs
 runs_ok=0
 
+#I create a dictionary: Run => bp_coverage
+ranking_runs={}
+
 for run in data_runs:
     if(data_runs[run]["flag"]==0):
         runs_ok=runs_ok+1
-        trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
-        trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
-        cmd="cat {} >> {}".format(trflstem1,fq_comb1)
-        system(cmd)
-        cmd="cat {} >> {}".format(trflstem2,fq_comb2)
-        system(cmd)
+        ranking_runs[run]=data_runs[run]["bp_coverage"]
 
+write_msg(file_log,":: Summaryzing the situation of the sequencing runs")
+# If there are no good runs:
 if runs_ok == 0:
-    write_msg(file_log,"    * [ERROR] I found some problems in each one of the runs you provided. The analysis stops here!")
+    write_msg(file_log,"  * [ERROR] I found some problems in each one of the runs you provided. The analysis stops here!")
     sys.exit()
+else:
+    write_msg(file_log,"  * {} runs are OK ({})".format(runs_ok,",".join(ranking_runs.keys())))
+
+selected_runs=[]
+# I find the 2 best runs
+if len(ranking_runs>2):
+    bp_coverages=sorted(ranking_runs.values())
+    first_two=set(bp_coverages[0:1])
+    for run in ranking_runs:
+        if ranking_runs[run] in first_two:
+            selected_runs.append(run)
+else:
+    selected_runs=ranking_runs.keys()
+
+write_msg(file_log,"  * Selected runs: {}".format(",".join(selected_runs)))
+
+for run in selected_runs:
+    trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
+    trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
+    cmd="cat {} >> {}".format(trflstem1,fq_comb1)
+    system(cmd)
+    cmd="cat {} >> {}".format(trflstem2,fq_comb2)
+    system(cmd)
+
 
 # Aligning reads to the reference
 write_msg(file_log,":: Aligning reads with bwa")
