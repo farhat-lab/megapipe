@@ -3,10 +3,22 @@ Workflow
 
 Installation
 ############
+
+Before being able to use megapipe, you need to install the following softwares on your computer (or use the correponding modules if you are working on o2):
+
+ * bwa (we use it to map the reads to the reference genome)
+ * prinseq (we use it to trim the reads)
+ * picard (we use it to remove the duplicated reads)
+ * pilon (we use it to determine the differences between the query genome and the reference genome and generate .vcf files)
+ * spades (we use it to generate an assembly of the query genome from the trimmed reads)
+ * samtools (we use it to calculate the depth of our sequencing data and other file format conversions)
+
 You need to get the tar.gz present in the dist directory. Then you can install the package: 
 ::
  pip install <path_to_targz>
-Now you need to create and set up the .megapipe.json configuration file. 
+
+Now you need to create and set up the .megapipe.json configuration file
+
  * This file is needed to tell megapipe where some of the programs used by the pipeline are located (these programs are .jar files that in theory can be located everywhere, so it is difficult to autodetect them). 
  * This file is a hidden file located in your home directory (~/.megapipe.json). You will able to list it if you use the -a option with the command 'ls'.
 
@@ -147,6 +159,13 @@ Here is the general synthax  of the command:
 
 For instance here is an example that show how to launch a megapipe analysis for all the genomes of a dataset of the RESEQTB project:
 
+
+Note: 
+If you are running megapipe on o2, megapipe has to use some modules in order to work properly. Please create a loadmodules.txt file in the directory where you will execute megapipe-launch.py:
+::
+ gcc/6.2.0|perl/5.24.0|picard/2.8.0
+
+
 **GOOD LUCK for your analyses!**
 
 **NOTE: remember to clean the scratch from time to time!** 
@@ -159,8 +178,9 @@ Todo
 ==== 
 * v2.0
     * everything should happen in the scratch. Just save the final results on the results directory
-* other improvements
     * add lineage calling
+    * log the versions of the programs that megapipe uses (important when we want to write papers)
+    * improve the output that goes into the grid engine output file
 
 Misc
 ====

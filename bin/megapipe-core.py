@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import os
 from os import popen, system, listdir, getcwd, path, environ, makedirs
 import re
 import subprocess as sbp
@@ -13,7 +14,7 @@ def detect_cfg_file():
         with open(environ['HOME']+"/.megapipe.json") as json_file:
             data = json.load(json_file)
             #If you update the pipeline, do not forget to update this check
-            if(("picard" in data) and ("pilon" in data) and ("prinseq" in data) and ("kraken_db" in data) and ("qualimap" in data) and ("spades" in data) and ("fasta_ref" in data)):
+            if(("picard" in data) and ("pilon" in data) and ("prinseq" in data) and ("kraken_db" in data) and ("qualimap" in data) and ("spades" in data) and ("fasta_ref" in data) and ("lineage_snp_db" in data)):
                 return(data)
             else:
                 print("::I could not find some required variables in the configuration file")
@@ -423,7 +424,9 @@ write_msg(file_log,"  * The percent of H37Rv bases that have a coverage of at le
 if(gencovprop < 0.95): # The threshold is 95%
 	write_msg(file_log,"    - [ERROR] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
 	sys.exit()
-fileout_depth=out_dir+"/"+tag+"/{}.depth".format(tag)
+if not path.exists(out_dir+"/"+tag+"/depth"):
+    makedirs(out_dir+"/"+tag+"/depth")
+fileout_depth=out_dir+"/"+tag+"/depth/{}.depth".format(tag)
 write_msg(fileout_depth,out.decode("ascii"))
 refcov = 0
 for d in depths:
@@ -436,9 +439,19 @@ system("samtools index {}".format(drbamfile))
 
 # I call the variants with pilon
 write_msg(file_log,":: Variant calling with Pilon")
+if not path.exists(out_dir+"/"+tag+"/pilon"):
+    makedirs(out_dir+"/"+tag+"/pilon")
 path_to_pilon=data_json["pilon"]
 try:
-    sbp.call("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, scratch_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]),shell=True)
+    # update all subprocess calls so that they look like this.
+    outfile = os.path.join(scratch_dir, tag, os.path.basename(drbamfile)[:-4])
+    cmd=["java", '-Xmx32G', '-jar', path_to_pilon,
+       '--genome', data_json["fasta_ref"],
+       '--bam', drbamfile,
+       '--output', outfile,
+       '--variant']
+    print(' '.join(cmd))
+    sbp.call(cmd)
     write_msg(file_log,"  * OK")
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with pilon!")
@@ -459,6 +472,7 @@ except:
 # I calculate the lineage using the fast-lineage-caller
 #path_to_lineage_snp_db=data_json["lineage_snp_db"]
 #try:
+#    sbp.call("vrtTools-vcf2vrt.py ".format(),shell=True)
 #    sbp.call("vrtTools-vcf2vrt.py ".format(),shell=True)
 #except:
 #    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
