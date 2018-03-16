@@ -48,7 +48,11 @@ def write_msg(file_log,msg):
     else:
         mode = 'w'
     with open(file_log,mode) as outf:
-        outf.write(msg+"\n")
+        if type(msg)=="byte":
+            outf.write(msg.decode("ascii")+"\n")
+        else:
+            outf.write(msg+"\n")
+
 
 def checkDRs(depths):
     """The purpose of this method is to check that at least 95% of base positions in the drug resistance conferring regions of the genome are covered 10x. This method was heavily inspired by and based upon Dr. Farhat's script "qc_report.py" in the work-horse directory"""
@@ -88,8 +92,8 @@ def medianLengthReadsAndReadCount(fastq):
 ##MAIN##
 ########
 
-if(len(sys.argv) != 7):
-    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <o2_logs>".format(sys.argv[0]))
+if(len(sys.argv) != 8):
+    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <o2_logs> <n_runs_to_consider[all|num]>".format(sys.argv[0]))
     sys.exit()
 
 tag=sys.argv[1]
@@ -99,6 +103,8 @@ out_dir=sys.argv[4]
 scratch_dir=sys.argv[5]
 #this directory stores the logs from o2 (output and error)
 log_dir=sys.argv[6]
+runs_to_consider=sys.argv[7]
+
 #I read the configuration file
 data_json=detect_cfg_file()
 
@@ -187,7 +193,7 @@ for current_run in runs_to_analyze:
     # I get the info about this run
     general_info=current_run.split(":")
     run=general_info[0]
-    print("  * analysing run {}".format(run))
+    write_msg(file_log,"  * analysing run {}".format(run))
     fastq_files=general_info[1].split(",")
 
     # the flag is 0 for now.
@@ -328,9 +334,17 @@ else:
 
 selected_runs=[]
 # I find the 2 best runs
-if len(ranking_runs>2):
-    bp_coverages=sorted(ranking_runs.values())
-    first_two=set(bp_coverages[0:1])
+if(runs_to_consider=="all"):
+    runs_to_consider=len(ranking_runs)
+else:
+    try:
+        runs_to_consider=int(runs_to_consider)
+    except:
+        write_msg(file_log,"  * [ERROR] I have some problems to understand how manu runs I should consider for the mapping and the assembly!")
+        sys.exit()
+if(len(ranking_runs)>runs_to_consider):
+    bp_coverages=sorted(ranking_runs.values(),reverse=True)
+    first_two=set(bp_coverages[0:runs_to_consider])
     for run in ranking_runs:
         if ranking_runs[run] in first_two:
             selected_runs.append(run)
@@ -339,12 +353,18 @@ else:
 
 write_msg(file_log,"  * Selected runs: {}".format(",".join(selected_runs)))
 
+# I reinitialize the fastq files.
+cmd="> {}".format(fq_comb1)
+system(cmd)
+cmd="> {}".format(fq_comb2)
+system(cmd)
+
 for run in selected_runs:
     trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
     trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
-    cmd="cat {} >> {}".format(trflstem1,fq_comb1)
+    cmd="cat {0} >> {1}".format(trflstem1,fq_comb1)
     system(cmd)
-    cmd="cat {} >> {}".format(trflstem2,fq_comb2)
+    cmd="cat {0} >> {1}".format(trflstem2,fq_comb2)
     system(cmd)
 
 
@@ -352,34 +372,48 @@ for run in selected_runs:
 write_msg(file_log,":: Aligning reads with bwa")
 samfile = scratch_dir + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-out=sbp.check_output("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],fq_comb1, fq_comb2, samfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-write_msg(file_log,out)
+try:
+    sbp.call("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],fq_comb1, fq_comb2, samfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+    write_msg(file_log,"  * OK!")
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with bwa! Check the logs from the grid engine for more information")
+    sys.exit()
 
 # Sorting and converting to bam
 write_msg(file_log,":: Sorting sam file with Picard")
 bamfile = scratch_dir + "/{}.sorted.bam".format(tag)
 path_to_picard=data_json["picard"]
-out=sbp.check_output("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
-write_msg(file_log,out)
+try:
+    sbp.call("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+    write_msg(file_log,"  * OK!")
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with picard!")
+    sys.exit()
 
 # Quality control
 write_msg(file_log,":: Evaluating mapping with Qualimap")
 path_to_qualimap=data_json["qualimap"]
 system(path_to_qualimap + " bamqc -bam {0} --outfile {1}.pdf --outformat PDF".format(bamfile, tag))
-qdir = scratch_dir + "/" + bamfile[bamfile.rindex("/") + 1:-4] + "_stats"
-system("mv {0} {1}".format(bamfile.replace(".bam", "_stats"), qdir))
-write_msg(file_log,"  * Please see the Qualimap report in {}".format(qdir))
+if not path.exists(out_dir+"/"+tag+"/qualimap"):
+    makedirs(out_dir+"/"+tag+"/qualimap")
+system("mv {0}/* {1}".format(bamfile.replace(".bam", "_stats"), out_dir+"/"+tag+"/qualimap/"))
+write_msg(file_log,"  * Please see the Qualimap report in {}".format(out_dir+"/"+tag+"/qualimap/"))
 
 # Removing duplicates
 write_msg(file_log,":: Removing duplicates from bam file with Picard")
 drbamfile = bamfile.replace(".bam", ".duprem.bam")
-out=sbp.check_output("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4]),shell=True) # help from http://seqanswers.com/forums/showthread.php?t=13192
-write_msg(file_log,out)
-write_msg(file_log,"  * Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
+try:
+    sbp.call("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4]),shell=True) # help from http://seqanswers.com/forums/showthread.php?t=13192
+    write_msg(file_log,"  * OK!")
+    write_msg(file_log,"  * Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with picard!")
+    sys.exit()
+
 
 write_msg(file_log,":: Calculating depth")
 out = sbp.check_output("samtools depth -a " + drbamfile,shell=True)
-dmat = re.findall("(.+\t)([0-9]+)(\n)", out)
+dmat = re.findall("(.+\t)([0-9]+)(\n)", out.decode("ascii"))
 depths = [float(t[1]) for t in dmat]
 
 #gencov = sum(depths) / len(depths)
@@ -390,7 +424,7 @@ if(gencovprop < 0.95): # The threshold is 95%
 	write_msg(file_log,"    - [ERROR] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
 	sys.exit()
 fileout_depth=out_dir+"/"+tag+"/{}.depth".format(tag)
-write_msg(fileout_depth,dout)
+write_msg(fileout_depth,out.decode("ascii"))
 refcov = 0
 for d in depths:
 	if(d > 0):
@@ -403,17 +437,32 @@ system("samtools index {}".format(drbamfile))
 # I call the variants with pilon
 write_msg(file_log,":: Variant calling with Pilon")
 path_to_pilon=data_json["pilon"]
-out=sbp.check_output("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, scratch_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]),shell=True)
-write_msg("{0}/{1}/{1}-pilon.log".format(scratch_dir,tag),out)
-
+try:
+    sbp.call("java -Xmx32G -jar " + path_to_pilon +" --genome RefGen/TBRefGen.fasta --bam {0} --output {1}/{2}/{3} --variant".format(drbamfile, scratch_dir, tag, drbamfile[drbamfile.rindex("/") + 1:-4]),shell=True)
+    write_msg(file_log,"  * OK")
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with pilon!")
+    sys.exit()
 
 # I generate the assembly with spades
 write_msg(file_log,":: Generating the assembly with Spades")
 #-t (treads); -m (memory, in Gb)
 path_to_spades=data_json["spades"]
-sbp.check_output("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(fq_comb1,fq_comb2,scratch_dir,tag),shell=True)
+try:
+    sbp.call("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(fq_comb1,fq_comb2,scratch_dir,tag),shell=True)
+    write_msg(file_log,"  * OK")
+## here I should reduce the redundancy of the vcf
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with spades!")
+    sys.exit()
 
 # I calculate the lineage using the fast-lineage-caller
+#path_to_lineage_snp_db=data_json["lineage_snp_db"]
+#try:
+#    sbp.call("vrtTools-vcf2vrt.py ".format(),shell=True)
+#except:
+#    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
+#    sys.exit()
 
 
 
