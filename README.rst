@@ -12,6 +12,8 @@ Before being able to use megapipe, you need to install the following softwares o
  * pilon (we use it to determine the differences between the query genome and the reference genome and generate .vcf files)
  * spades (we use it to generate an assembly of the query genome from the trimmed reads)
  * samtools (we use it to calculate the depth of our sequencing data and other file format conversions)
+ * vrtTools (it is a requirement of the Fast lineage caller) -- https://github.com/farhat-lab/vrt-tools
+ * Fast lineage caller (we use it to do the lineage calls) -- https://github.com/farhat-lab/fast-lineage-caller
 
 You need to get the tar.gz present in the dist directory. Then you can install the package: 
 ::
@@ -32,13 +34,15 @@ Now you can paste the following code (json format):
 ::
  {
  "kraken_db":"/n/data1/hms/dbmi/farhat/bin/kraken/tbdb/",
- "picard":"/opt/picard-2.7.1/bin/picard.jar",
+ "picard":"/n/app/picard/2.8.0/bin/picard-2.8.0.jar",
  "pilon":"/n/data1/hms/dbmi/farhat/bin/pilon/pilon-1.22.jar",
  "qualimap":"/home/lf61/mfarhat/bin/qualimap_v2.2.1/qualimap",
  "prinseq":"/home/lf61/mfarhat/bin/prinseq-lite-0.20.4/prinseq-lite.pl",
  "spades":"/home/lf61/sw/spades/3.10.1/bin/spades.py",
- "fasta_ref":"/home/lf61/lf61/repos/megapipe/RefGen/TBRefGen.fasta"
+ "fasta_ref":"/home/lf61/lf61/repos/megapipe/RefGen/TBRefGen.fasta",
+ "lineage_snp_db":"/home/lf61/lf61/repos/fast-lineage-caller/example/db_snps.tsv"
  }
+
 
 Of course you need to change the paths of each program with the paths. Save the file and exit.
 
