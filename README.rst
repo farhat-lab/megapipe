@@ -181,8 +181,11 @@ Version history
 Todo
 ==== 
 * v2.0
+    * parse the vcf file so that we have a shorter version of it.
+    * add a directory to store the pilon results
     * everything should happen in the scratch. Just save the final results on the results directory
     * add lineage calling
+        * modify vrtTools so that they work with python 3
     * log the versions of the programs that megapipe uses (important when we want to write papers)
     * improve the output that goes into the grid engine output file
 

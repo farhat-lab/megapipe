@@ -120,6 +120,8 @@ if not path.exists(scratch_dir):
     makedirs(scratch_dir)
 if not path.exists(out_dir+"/"+tag+"/"):
     makedirs(out_dir+"/"+tag+"/")
+if not path.exists(scratch_dir+"/"+tag+"/"):
+    makedirs(scratch_dir+"/"+tag+"/")
 if not path.exists(log_dir):
     makedirs(log_dir)
 
@@ -212,26 +214,30 @@ for current_run in runs_to_analyze:
     # I unzip the fastq files of this run
     #I unzip the fastq files in a directory on scratch2
     write_msg(file_log,"    - Unzipping fastq files (on {0})".format(scratch_dir))
-    cmd="zcat {0} > {1}/{2}_1.fastq".format(fastq_files[0], scratch_dir, general_info[0])
-    print(cmd)
+    cmd=["zcat",fastq_files[0], 
+        ">", 
+        "{0}/{1}{2}_1.fastq".format(scratch_dir,tag, general_info[0])]
+    print(" ".join(cmd))
     try:
-        o=sbp.check_output(cmd,shell=True)
+        o=sbp.check_output(cmd)
     except:
         write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
-    cmd="zcat {0} > {1}/{2}_2.fastq".format(fastq_files[1], scratch_dir, general_info[0])
-    print(cmd)
+    cmd=["zcat",fastq_files[1], 
+        ">", 
+        "{0}/{1}{2}_2.fastq".format(scratch_dir,tag, general_info[0])]
+    print(" ".join(cmd))
     try:
-        o=sbp.check_output(cmd,shell=True)
+        o=sbp.check_output(cmd)
     except:
         write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
 
     #I rename the variables fqf1 and fqf2 since the fastq I will use are the ones on the scratch, so that I do not touch the original ones
-    fqf1 = scratch_dir +"/" + general_info[0] + "_1.fastq"
-    fqf2 = scratch_dir +"/" + general_info[0] + "_2.fastq"
+    fqf1 = scratch_dir + "/" + tag + "/" + general_info[0] + "_1.fastq"
+    fqf2 = scratch_dir + "/" + tag + "/" + general_info[0] + "_2.fastq"
 
     #I check the fasta files
     write_msg(file_log,"    - Validating fastq files")
@@ -261,9 +267,17 @@ for current_run in runs_to_analyze:
     if not path.exists(out_dir+"/"+tag+"/prinseq"):
         makedirs(out_dir+"/"+tag+"/prinseq")
     path_to_prinseq=data_json["prinseq"]
-    cmd="perl "+ path_to_prinseq +" -fastq {0} -fastq2 {1} -out_format 3 -out_good {2}/{3}-trimmed -out_bad null -log {4}/{5}/prinseq/{3}-prinseq.log -min_qual_mean 20 -verbose".format(fqf1, fqf2, scratch_dir,run,out_dir,tag)
-    print(cmd)
-    o=sbp.check_output(cmd,shell=True)
+    cmd=["perl ", path_to_prinseq,
+        "-fastq",fqf1,
+        "-fastq2",fqf2,
+        "-out_format", "3",
+        "-out_good", {2}/{5}/{3}-trimmed 
+        "-out_bad", "null",
+        "-log", out_dir+"/"+tag+"/prinseq/"+run+"-prinseq.log",
+        "-min_qual_mean", 20
+        "-verbose"]
+    print(" ".join(cmd))
+    o=sbp.check_output(cmd)
     write_msg(file_log,"      + Please see the Prinseq report in {0}/{1}/prinseq/{2}-prinseq.log".format(out_dir,tag, run))
     # I check if the trimming went well.
     trflstem1 = run + "-trimmed_1.fastq"
@@ -284,11 +298,19 @@ for current_run in runs_to_analyze:
     if not path.exists(out_dir+"/"+tag+"/kraken"):
         makedirs(out_dir+"/"+tag+"/kraken")
     path_to_krakendb=data_json["kraken_db"]
-    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl1, out_dir + "/" + tag + "/kraken/" + trflstem1 + ".krkn", path_to_krakendb)
-    e=sbp.check_output(cmd,shell=True,stderr=sbp.STDOUT)
+    cmd=["kraken",
+        "--fastq-input", sctrfl1,
+        "--output", out_dir + "/" + tag + "/kraken/" + trflstem1 + ".krkn",
+        "--db", path_to_krakendb]
+    print(" ".join(cmd))
+    e=sbp.check_output(cmd,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc1 = float(mat.groups()[1]) / 100
-    cmd="kraken --fastq-input {0} --output {1} --db {2}".format(sctrfl2, out_dir + "/" + tag + "/kraken/" + trflstem2 + ".krkn", path_to_krakendb)
+    cmd=["kraken",
+        "--fastq-input", sctrfl2,
+        "--output", out_dir + "/" + tag + "/kraken/" + trflstem2 + ".krkn",
+        "--db", path_to_krakendb]
+    print(" ".join(cmd))
     e=sbp.check_output(cmd,shell=True,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
@@ -361,8 +383,8 @@ cmd="> {}".format(fq_comb2)
 system(cmd)
 
 for run in selected_runs:
-    trflstem1 = scratch_dir+ "/" + run + "-trimmed_1.fastq"
-    trflstem2 = scratch_dir+ "/" + run + "-trimmed_2.fastq"
+    trflstem1 = scratch_dir+ "/" + tag + "/" + run + "-trimmed_1.fastq"
+    trflstem2 = scratch_dir+ "/" + tag + "/" + run + "-trimmed_2.fastq"
     cmd="cat {0} >> {1}".format(trflstem1,fq_comb1)
     system(cmd)
     cmd="cat {0} >> {1}".format(trflstem2,fq_comb2)
@@ -371,7 +393,7 @@ for run in selected_runs:
 
 # Aligning reads to the reference
 write_msg(file_log,":: Aligning reads with bwa")
-samfile = scratch_dir + "/{}.sam".format(tag)
+samfile = scratch_dir + "/" + run + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 try:
     sbp.call("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],fq_comb1, fq_comb2, samfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
@@ -382,10 +404,17 @@ except:
 
 # Sorting and converting to bam
 write_msg(file_log,":: Sorting sam file with Picard")
-bamfile = scratch_dir + "/{}.sorted.bam".format(tag)
+bamfile = scratch_dir + "/" + run +"/{}.sorted.bam".format(tag)
 path_to_picard=data_json["picard"]
 try:
-    sbp.call("java -Xmx16G -jar " + path_to_picard + " SortSam INPUT={0} OUTPUT={1} SORT_ORDER=coordinate".format(samfile, bamfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+    cmd=["java","-Xmx16G"
+    "-jar", path_to_picard, "SortSam",
+    "INPUT={}".format(samfile),
+    "OUTPUT={}".format(bamfile),
+    "SORT_ORDER=coordinate"
+    ]
+    print(" ".join(cmd))
+    sbp.call(cmd)
     write_msg(file_log,"  * OK!")
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with picard!")
@@ -404,7 +433,16 @@ write_msg(file_log,"  * Please see the Qualimap report in {}".format(out_dir+"/"
 write_msg(file_log,":: Removing duplicates from bam file with Picard")
 drbamfile = bamfile.replace(".bam", ".duprem.bam")
 try:
-    sbp.call("java -Xmx32G -jar " + path_to_picard +" MarkDuplicates I={0} O={1} REMOVE_DUPLICATES=true M={2} ASSUME_SORT_ORDER=coordinate".format(bamfile, drbamfile, drbamfile[:-4]),shell=True) # help from http://seqanswers.com/forums/showthread.php?t=13192
+    cmd=["java","-Xmx32G",
+        "-jar",path_to_picard,
+        "MarkDuplicates",
+        "I={}".format(bamfile),
+        "O={}".format(drbamfile),
+        "REMOVE_DUPLICATES=true",
+        "M={}".format(drbamfile[:-4]),
+        "ASSUME_SORT_ORDER=coordinate"
+]
+    sbp.call(cmd) # help from http://seqanswers.com/forums/showthread.php?t=13192
     write_msg(file_log,"  * OK!")
     write_msg(file_log,"  * Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
 except:
@@ -413,7 +451,7 @@ except:
 
 
 write_msg(file_log,":: Calculating depth")
-out = sbp.check_output("samtools depth -a " + drbamfile,shell=True)
+out = sbp.check_output(["samtools", "depth", "-a", drbamfile])
 dmat = re.findall("(.+\t)([0-9]+)(\n)", out.decode("ascii"))
 depths = [float(t[1]) for t in dmat]
 
@@ -435,7 +473,7 @@ for d in depths:
 write_msg(file_log,"  * Percent of reference genome covered: {}".format(refcov / len(depths)))
 
 write_msg(file_log,":: Indexing {}".format(drbamfile))
-system("samtools index {}".format(drbamfile))
+sbp.call(["samtools", "index", drbamfile])
 
 # I call the variants with pilon
 write_msg(file_log,":: Variant calling with Pilon")
@@ -444,15 +482,21 @@ if not path.exists(out_dir+"/"+tag+"/pilon"):
 path_to_pilon=data_json["pilon"]
 try:
     # update all subprocess calls so that they look like this.
-    outfile = os.path.join(scratch_dir, tag, os.path.basename(drbamfile)[:-4])
+    out_pilon = os.path.join(scratch_dir, tag,"pilon", os.path.basename(drbamfile)[:-4])
     cmd=["java", '-Xmx32G', '-jar', path_to_pilon,
        '--genome', data_json["fasta_ref"],
        '--bam', drbamfile,
-       '--output', outfile,
+       '--output', out_pilon,
        '--variant']
     print(' '.join(cmd))
     sbp.call(cmd)
+    # I reduce the size of the pilon output
+    cmd=["megapipe-vcf-cutter.py",out_pilon+".vcf",out_dir+"/"+tag+"/pilon/"+tag+".vcf"]
+    sbp.call(cmd)
+    # I copy the data 
+    system("cp {0}.fasta {1}".format(out_pilon,out_dir+"/"+tag+"/pilon/"))
     write_msg(file_log,"  * OK")
+
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with pilon!")
     sys.exit()
@@ -462,21 +506,38 @@ write_msg(file_log,":: Generating the assembly with Spades")
 #-t (treads); -m (memory, in Gb)
 path_to_spades=data_json["spades"]
 try:
-    sbp.call("python2 " + path_to_spades + " -t 1 -m 30 --careful --pe1-1 {0} --pe1-2 {1} -o {2}/{3}/spades".format(fq_comb1,fq_comb2,scratch_dir,tag),shell=True)
+    cmd=["python2", path_to_spades,
+        '-t','1',
+        '-m','30',
+        '--careful',
+        '--pe1-1',fq_comb1,
+        '--pe1-2',fq_comb2,
+        '-o',scratch_dir+"/"+tag+"/spades"]
+    print(' '.join(cmd))
+    sbp.call(cmd)
+    # I copy the assembly data and the logs
+    sbp.call(["cp", scratch_dir+"/"+tag+"/spades/scaffolds.fasta", out_dir+"/"+tag+"/spades/"+tag+"_"+"scaffolds.fasta"])
+    sbp.call(["cp", scratch_dir+"/"+tag+"/spades/contigs.fasta", out_dir+"/"+tag+"/spades/"+tag+"_"+"contigs.fasta"])
+    sbp.call(["cp", scratch_dir+"/"+tag+"/spades/spades.log", out_dir+"/"+tag+"/spades/"+tag+"_"+"spades.log"])
     write_msg(file_log,"  * OK")
-## here I should reduce the redundancy of the vcf
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with spades!")
     sys.exit()
 
 # I calculate the lineage using the fast-lineage-caller
-#path_to_lineage_snp_db=data_json["lineage_snp_db"]
-#try:
-#    sbp.call("vrtTools-vcf2vrt.py ".format(),shell=True)
-#    sbp.call("vrtTools-vcf2vrt.py ".format(),shell=True)
-#except:
-#    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
-#    sys.exit()
+path_to_lineage_snp_db=data_json["lineage_snp_db"]
+if not path.exists(scratch_dir+"/"+tag+"/fast-lineage-caller"):
+    makedirs(scratch_dir+"/"+tag+"/fast-lineage-caller")
+if not path.exists(out_dir+"/"+tag+"/fast-lineage-caller"):
+    makedirs(out_dir+"/"+tag+"/fast-lineage-caller")
 
+try:
+    cmd=["vrtTools-vcf2vrt.py", out_dir+"/"+tag+"/pilon/"+tag+".vcf", scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt"]
+    sbp.call(cmd)
+    cmd=["FastLineageCaller-assign2lineage.py", path_to_lineage_snp_db, scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt",">",out_dir+"/"+tag+"/fast-lineage-caller/"+tag+".lineage"]
+    sbp.call(cmd)
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
+    sys.exit()
 
 
