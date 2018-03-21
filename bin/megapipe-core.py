@@ -33,8 +33,8 @@ def detect_weird_read_names(fastq):
 def valFQ(file1,file2):
     print("::validate fastq files")
     try:
-        out1 = sbp.check_output("fastQValidator --file " + file1, shell=True)
-        out2 = sbp.check_output("fastQValidator --file " + file2, shell=True)
+        out1 = sbp.check_output(["fastQValidator", "--file", file1])
+        out2 = sbp.check_output(["fastQValidator", "--file", file2])
         m1 = re.search("FASTQ_SUCCESS", out1)
         m2 = re.search("FASTQ_SUCCESS", out2)
         if(m1 == None or m2 == None):
@@ -274,7 +274,7 @@ for current_run in runs_to_analyze:
         "-min_qual_mean", "20",
         "-verbose"]
     print(" ".join(cmd))
-    o=sbp.check_output(cmd)
+    sbp.call(cmd)
     write_msg(file_log,"      + Please see the Prinseq report in {0}/{1}/prinseq/{2}-prinseq.log".format(out_dir,tag, run))
     # I check if the trimming went well.
     trflstem1 = run + "-trimmed_1.fastq"
@@ -393,7 +393,9 @@ write_msg(file_log,":: Aligning reads with bwa")
 samfile = scratch_dir + "/" + run + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 try:
-    sbp.call("bwa mem -M {0} {1} {2} > {3}".format(data_json["fasta_ref"],fq_comb1, fq_comb2, samfile),shell=True) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
+    cmd=["bwa","mem","-M","{0} {1} {2}".format(data_json["fasta_ref"],fq_comb1, fq_comb2)]
+    with open(samfile,"w") as samf:
+        sbp.call(cmd,stdout=samf)
     write_msg(file_log,"  * OK!")
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with bwa! Check the logs from the grid engine for more information")
