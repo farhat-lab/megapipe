@@ -214,22 +214,19 @@ for current_run in runs_to_analyze:
     # I unzip the fastq files of this run
     #I unzip the fastq files in a directory on scratch2
     write_msg(file_log,"    - Unzipping fastq files (on {0})".format(scratch_dir))
-    cmd=["zcat",fastq_files[0], 
-        ">", 
-        "{0}/{1}{2}_1.fastq".format(scratch_dir,tag, general_info[0])]
-    print(" ".join(cmd))
+    cmd=["zcat",fastq_files[0]]
     try:
-        o=sbp.check_output(cmd)
+        with open("{0}/{1}/{2}_1.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
+            sbp.call(cmd,stdout=fqf)
     except:
         write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
         continue
-    cmd=["zcat",fastq_files[1], 
-        ">", 
-        "{0}/{1}{2}_2.fastq".format(scratch_dir,tag, general_info[0])]
-    print(" ".join(cmd))
+    cmd=["zcat",fastq_files[1]]
+
     try:
-        o=sbp.check_output(cmd)
+        with open("{0}/{1}/{2}_2.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
+            sbp.call(cmd,stdout=fqf)
     except:
         write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
         data_runs[run]["flag"]=1
@@ -267,14 +264,14 @@ for current_run in runs_to_analyze:
     if not path.exists(out_dir+"/"+tag+"/prinseq"):
         makedirs(out_dir+"/"+tag+"/prinseq")
     path_to_prinseq=data_json["prinseq"]
-    cmd=["perl ", path_to_prinseq,
+    cmd=["perl", path_to_prinseq,
         "-fastq",fqf1,
         "-fastq2",fqf2,
         "-out_format", "3",
-        "-out_good", {2}/{5}/{3}-trimmed 
+        "-out_good", scratch_dir+"/"+tag+"/"+ run +"-trimmed",
         "-out_bad", "null",
         "-log", out_dir+"/"+tag+"/prinseq/"+run+"-prinseq.log",
-        "-min_qual_mean", 20
+        "-min_qual_mean", "20",
         "-verbose"]
     print(" ".join(cmd))
     o=sbp.check_output(cmd)
@@ -311,7 +308,7 @@ for current_run in runs_to_analyze:
         "--output", out_dir + "/" + tag + "/kraken/" + trflstem2 + ".krkn",
         "--db", path_to_krakendb]
     print(" ".join(cmd))
-    e=sbp.check_output(cmd,shell=True,stderr=sbp.STDOUT)
+    e=sbp.check_output(cmd,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
     write_msg(file_log,"      + Please see the Kraken report in {0}/{1}/kraken/{2}.krkn and {0}/{1}/kraken{3}.krkn".format(out_dir, tag, trflstem1, trflstem2))
