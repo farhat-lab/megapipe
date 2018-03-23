@@ -279,16 +279,13 @@ for current_run in runs_to_analyze:
     # I check if the trimming went well.
     trflstem1 = run + "-trimmed_1.fastq"
     trflstem2 = run + "-trimmed_2.fastq"
-    trfl1 = scratch_dir + "/" + trflstem1
-    trfl2 = scratch_dir + "/" + trflstem2
-    files = listdir(scratch_dir+"/")
+    trfl1 = scratch_dir + "/" + tag+ "/" + trflstem1
+    trfl2 = scratch_dir + "/" + tag+ "/" + trflstem2
+    files = listdir(scratch_dir+"/" + tag + "/")
     if(not(trflstem1 in files and trflstem2 in files)):
         write_msg(file_log, "      + [WARNING] Prinseq failed. Please have a look at the log file")
         data_runs[run]["flag"]=1
         continue
-    #sctrfl = scratchtrimmedfile // I am aware these two lines are not useful. Please remove them.
-    sctrfl1 = scratch_dir +"/" + trflstem1
-    sctrfl2 = scratch_dir + "/" + trflstem2
 
     # I classify the reads with Kraken
     write_msg(file_log,"    - Classifying reads with Kraken")
@@ -296,7 +293,7 @@ for current_run in runs_to_analyze:
         makedirs(out_dir+"/"+tag+"/kraken")
     path_to_krakendb=data_json["kraken_db"]
     cmd=["kraken",
-        "--fastq-input", sctrfl1,
+        "--fastq-input", trfl1,
         "--output", out_dir + "/" + tag + "/kraken/" + trflstem1 + ".krkn",
         "--db", path_to_krakendb]
     print(" ".join(cmd))
@@ -304,14 +301,18 @@ for current_run in runs_to_analyze:
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc1 = float(mat.groups()[1]) / 100
     cmd=["kraken",
-        "--fastq-input", sctrfl2,
+        "--fastq-input", trfl2,
         "--output", out_dir + "/" + tag + "/kraken/" + trflstem2 + ".krkn",
         "--db", path_to_krakendb]
     print(" ".join(cmd))
     e=sbp.check_output(cmd,stderr=sbp.STDOUT)
     mat = re.search("( classified \()([0-9]+\.*[0-9]*)(%\))", str(e))
     tbperc2 = float(mat.groups()[1]) / 100
-    write_msg(file_log,"      + Please see the Kraken report in {0}/{1}/kraken/{2}.krkn and {0}/{1}/kraken{3}.krkn".format(out_dir, tag, trflstem1, trflstem2))
+    cmd="gzip {0}/{1}/kraken/{2}.krkn".format(out_dir, tag, trflstem1)
+    system(cmd)
+    cmd="gzip {0}/{1}/kraken/{2}.krkn".format(out_dir, tag, trflstem2)
+    system(cmd)
+    write_msg(file_log,"      + Please see the Kraken report in {0}/{1}/kraken/{2}.krkn.gz and {0}/{1}/kraken/{3}.krkn.gz".format(out_dir, tag, trflstem1, trflstem2))
     # We still need to check that more than 90% of the sequences are from mycobacterium tuberculosis by making sense of output from Kraken
     # write doen in the log tbperc1 and 2
     if(tbperc1 < 0.9):
@@ -324,14 +325,14 @@ for current_run in runs_to_analyze:
         continue
     # I determine how good is this run
     write_msg(file_log,"    - I count the reads and calculate the median read length")
-    qual_metrics=medianLengthReadsAndReadCount(sctrfl1)
+    qual_metrics=medianLengthReadsAndReadCount(trfl1)
     write_msg(file_log,"      + Num of reads: {}; Median read length: {} bp".format(qual_metrics[1],qual_metrics[0]))
     data_runs[run]["bp_coverage"]=qual_metrics[2]
 
 
 # Now I can combine the runs that succeeded
-fq_comb1=scratch_dir + "/" + tag+"-combined_1.fastq"
-fq_comb2=scratch_dir + "/" + tag+"-combined_2.fastq"
+fq_comb1=scratch_dir + "/" + tag + "/" + tag + "-combined_1.fastq"
+fq_comb2=scratch_dir + "/" + tag + "/" + tag + "-combined_2.fastq"
 
 #I check that at least one run is OK. I define a variable to count the good runs
 runs_ok=0
@@ -360,7 +361,7 @@ else:
     try:
         runs_to_consider=int(runs_to_consider)
     except:
-        write_msg(file_log,"  * [ERROR] I have some problems to understand how manu runs I should consider for the mapping and the assembly!")
+        write_msg(file_log,"  * [ERROR] I have some problems to understand how many runs I should consider for the mapping and the assembly!")
         sys.exit()
 if(len(ranking_runs)>runs_to_consider):
     bp_coverages=sorted(ranking_runs.values(),reverse=True)
@@ -390,10 +391,11 @@ for run in selected_runs:
 
 # Aligning reads to the reference
 write_msg(file_log,":: Aligning reads with bwa")
-samfile = scratch_dir + "/" + run + "/{}.sam".format(tag)
+samfile = scratch_dir + "/" + tag + "/{}.sam".format(tag)
 #piper = popen("bwa mem -M -R '@RG\tID:<unknown>\tSM:<unknown>\tPL:<unknown>\tLB:<unknown>\tPU:<unknown>' RefGen/TBRefGen.fasta {0} {1} > {2}".format(sctrfl1, sctrfl2, samfile)) # help from http://gatkforums.broadinstitute.org/gatk/discussion/2799/howto-map-and-mark-duplicates
 try:
-    cmd=["bwa","mem","-M","{0} {1} {2}".format(data_json["fasta_ref"],fq_comb1, fq_comb2)]
+    cmd=["bwa","mem","-M", data_json["fasta_ref"], fq_comb1, fq_comb2]
+    print(" ".join(cmd))
     with open(samfile,"w") as samf:
         sbp.call(cmd,stdout=samf)
     write_msg(file_log,"  * OK!")
@@ -403,10 +405,10 @@ except:
 
 # Sorting and converting to bam
 write_msg(file_log,":: Sorting sam file with Picard")
-bamfile = scratch_dir + "/" + run +"/{}.sorted.bam".format(tag)
+bamfile = scratch_dir + "/" + tag +"/{}.sorted.bam".format(tag)
 path_to_picard=data_json["picard"]
 try:
-    cmd=["java","-Xmx16G"
+    cmd=["java","-Xmx16G",
     "-jar", path_to_picard, "SortSam",
     "INPUT={}".format(samfile),
     "OUTPUT={}".format(bamfile),
@@ -438,7 +440,7 @@ try:
         "I={}".format(bamfile),
         "O={}".format(drbamfile),
         "REMOVE_DUPLICATES=true",
-        "M={}".format(drbamfile[:-4]),
+        "M={}".format(drbamfile[:-4]+".metrics"),
         "ASSUME_SORT_ORDER=coordinate"
 ]
     sbp.call(cmd) # help from http://seqanswers.com/forums/showthread.php?t=13192
@@ -465,6 +467,9 @@ if not path.exists(out_dir+"/"+tag+"/depth"):
     makedirs(out_dir+"/"+tag+"/depth")
 fileout_depth=out_dir+"/"+tag+"/depth/{}.depth".format(tag)
 write_msg(fileout_depth,out.decode("ascii"))
+# I compress the depth output file
+cmd="gzip {}".format(fileout_depth)
+system(cmd) 
 refcov = 0
 for d in depths:
 	if(d > 0):
@@ -478,10 +483,12 @@ sbp.call(["samtools", "index", drbamfile])
 write_msg(file_log,":: Variant calling with Pilon")
 if not path.exists(out_dir+"/"+tag+"/pilon"):
     makedirs(out_dir+"/"+tag+"/pilon")
+if not path.exists(scratch_dir+"/"+tag+"/pilon"):
+    makedirs(scratch_dir+"/"+tag+"/pilon")
 path_to_pilon=data_json["pilon"]
 try:
     # update all subprocess calls so that they look like this.
-    out_pilon = os.path.join(scratch_dir, tag,"pilon", os.path.basename(drbamfile)[:-4])
+    out_pilon = os.path.join(scratch_dir, tag, "pilon", tag)
     cmd=["java", '-Xmx32G', '-jar', path_to_pilon,
        '--genome', data_json["fasta_ref"],
        '--bam', drbamfile,
@@ -502,6 +509,8 @@ except:
 
 # I generate the assembly with spades
 write_msg(file_log,":: Generating the assembly with Spades")
+if not path.exists(out_dir+"/"+tag+"/spades"):
+    makedirs(out_dir+"/"+tag+"/spades")
 #-t (treads); -m (memory, in Gb)
 path_to_spades=data_json["spades"]
 try:
@@ -531,10 +540,11 @@ if not path.exists(out_dir+"/"+tag+"/fast-lineage-caller"):
     makedirs(out_dir+"/"+tag+"/fast-lineage-caller")
 
 try:
-    cmd=["vrtTools-vcf2vrt.py", out_dir+"/"+tag+"/pilon/"+tag+".vcf", scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt"]
+    cmd=["vrtTools-vcf2vrt.py", out_dir+"/"+tag+"/pilon/"+tag+".vcf", scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt","1"]
     sbp.call(cmd)
-    cmd=["FastLineageCaller-assign2lineage.py", path_to_lineage_snp_db, scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt",">",out_dir+"/"+tag+"/fast-lineage-caller/"+tag+".lineage"]
-    sbp.call(cmd)
+    cmd=["FastLineageCaller-assign2lineage.py", path_to_lineage_snp_db, scratch_dir+"/"+tag+"/fast-lineage-caller/"+tag+".vrt"]
+    with open(out_dir+"/"+tag+"/fast-lineage-caller/"+tag+".lineage","w") as lin:
+        sbp.call(cmd,stdout=lin)
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
     sys.exit()
