@@ -180,7 +180,7 @@ with open(table,"r") as inp:
             if internal_xref==tag:
                 # I get the runs
                 idx_runs=fields.index("internal_fastq_files")
-                internal_runs=list(entry[idx_runs])
+                internal_runs=[entry[idx_runs]]
                 runs_to_analyze.extend(internal_runs)
 
 # Now foreach run I unzip it, I check that the fastq files are ok.
