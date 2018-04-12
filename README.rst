@@ -150,6 +150,9 @@ In order to check if the download finished or not, please use the "squeue" comma
  #squeue|grep <your_username>
  squeue|grep lf61
 
+Note: we advice you to use an absolute path for the destination directory!
+
+
 Generating all genomic data
 #########################
 
