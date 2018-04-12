@@ -45,7 +45,7 @@ with open(table,"r") as inp:
             internal_xref=entry[idx_internal_xref]
             if((internal_xref!="") and (internal_xref not in already_done)):
                 to_analyze.append(internal_xref)
-        if ((not "idx_public_xref" in vars()) and (not "idx_internal_xref" in vars()))
+        if ((not "idx_public_xref" in vars()) and (not "idx_internal_xref" in vars())):
                 print("[ERROR] An entry does not have neither a public_xref nor an internal_xref")
                 print(line.rstrip("\n"))
 
