@@ -25,15 +25,9 @@ with open(fileIn,"r") as inp:
             continue
         with open(dirLogsFromGridEngine+"/"+idNCBI+"_cmds.sh","w") as outf:
             outf.write("#!/bin/bash\n")
-            cmd="srapath"+' "'+idNCBI+'"'
-            print("  * getting the path for {}".format(idNCBI))
-            try:
-                pathRun=sbp.check_output(cmd,shell=True)
-                outf.write("wget -O {} {}\n".format(dirLogsFromGridEngine+"/"+idNCBI,pathRun.decode("ascii").rstrip("\n")))
-                outf.write("fastq-dump --split-files --gzip {0} -O {1}\n".format(dirLogsFromGridEngine+"/"+idNCBI,destDir))
-            except sbp.CalledProcessError:
-                print(":: [ERROR] I encountered a problem generating the script for this file")
-                pass
+            outf.write("SRAPATH=`srapath"+' "'+idNCBI+'"`'+"\n")
+            outf.write("wget -O {} $SRAPATH\n".format(dirLogsFromGridEngine+"/"+idNCBI))
+            outf.write("fastq-dump --split-files --gzip {0} -O {1}\n".format(dirLogsFromGridEngine+"/"+idNCBI,destDir))
 print("[INFO] I submit the jobs to o2")
 for script in glob(dirLogsFromGridEngine+"/"+"*_cmds.sh"):
     cmd="sbatch -p short -n 1 -t 30:00 --mem 5G -o {0}.out -e {0}.err {0}".format(script)
