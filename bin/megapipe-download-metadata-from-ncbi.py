@@ -100,10 +100,11 @@ def convertDataToTable(fileIn,fileOut):
             for key in db:
                 newRow=[]
                 for field in sorted(fields.keys()):
-                    if db[key][field]:
+                    try:
                         newRow.append(db[key][field])
-                    else:
+                    except:
                         newRow.append("")
+                        pass
                 outf.write("\t".join(newRow)+"\n")
 
 if len(sys.argv) != 3:
