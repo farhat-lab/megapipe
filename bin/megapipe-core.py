@@ -252,9 +252,9 @@ for current_run in runs_to_analyze:
     test_names2=detect_weird_read_names(fqf2)
     if((test_names1==True) or (test_names2==True)):
         write_msg(file_log,"      + I found some weird names. I am fixing them!")
-        cmd="megapipe-check-names.py {}".format(fqf1)
+        cmd="megapipe-correct-names-reads.py {}".format(fqf1)
         system(cmd)
-        cmd="megapipe-check-names.py {}".format(fqf2)
+        cmd="megapipe-correct-names-reads.py {}".format(fqf2)
         system(cmd)
     else:
         write_msg(file_log,"      + OK!")
