@@ -243,10 +243,10 @@ for current_run in runs_to_analyze:
             continue
     else:
         # If the files are already fastq files...
-        write_msg(file_log,"    - The fastq files are already unzipped. I create a symlink")
-        cmd=["ln","-sf",fastq_files[0],fqf1]
+        write_msg(file_log,"    - The fastq files are already unzipped. I copy the fastq files")
+        cmd=["cp",fastq_files[0],fqf1]
         sbp.call(cmd)
-        cmd=["ln","-sf",fastq_files[1],fqf2]
+        cmd=["cp",fastq_files[1],fqf2]
         sbp.call(cmd)
 
     #I check the fastq files
