@@ -211,32 +211,42 @@ for current_run in runs_to_analyze:
     data_runs[run]["bp_coverage"]={}
     data_runs[run]["fq2"]=fastq_files[1]
 
-    # I unzip the fastq files of this run
-    #I unzip the fastq files in a directory on scratch2
-    write_msg(file_log,"    - Unzipping fastq files (on {0})".format(scratch_dir))
-    cmd=["zcat",fastq_files[0]]
-    try:
-        with open("{0}/{1}/{2}_1.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
-            sbp.call(cmd,stdout=fqf)
-    except:
-        write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
-        data_runs[run]["flag"]=1
-        continue
-    cmd=["zcat",fastq_files[1]]
-
-    try:
-        with open("{0}/{1}/{2}_2.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
-            sbp.call(cmd,stdout=fqf)
-    except:
-        write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
-        data_runs[run]["flag"]=1
-        continue
-
     #I rename the variables fqf1 and fqf2 since the fastq I will use are the ones on the scratch, so that I do not touch the original ones
     fqf1 = scratch_dir + "/" + tag + "/" + general_info[0] + "_1.fastq"
     fqf2 = scratch_dir + "/" + tag + "/" + general_info[0] + "_2.fastq"
 
-    #I check the fasta files
+    gz_pattern=re.compile("\.gz$")
+    #if the file has .gz extension
+    if re.search(gz_pattern,fastq_files[0]):
+        # I unzip the fastq files of this run
+        #I unzip the fastq files in a directory on scratch2
+        write_msg(file_log,"    - Unzipping fastq files (on {0})".format(scratch_dir))
+        cmd=["zcat",fastq_files[0]]
+        try:
+            with open("{0}/{1}/{2}_1.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
+                sbp.call(cmd,stdout=fqf)
+        except:
+            write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+            data_runs[run]["flag"]=1
+            continue
+        cmd=["zcat",fastq_files[1]]
+
+        try:
+            with open("{0}/{1}/{2}_2.fastq".format(scratch_dir,tag, general_info[0]),"w") as fqf:
+                sbp.call(cmd,stdout=fqf)
+        except:
+            write_msg(file_log,"      + [WARNING] I found a problem while unzipping {}".format(general_info[0]))
+            data_runs[run]["flag"]=1
+            continue
+    else:
+        # If the files are already fastq files...
+        write_msg(file_log,"    - The fastq files are already unzipped. I create a symlink")
+        cmd=["ln","-sf",fastq_files[0],fqf1]
+        sbp.call(cmd)
+        cmd=["ln","-sf",fastq_files[1],fqf2]
+        sbp.call(cmd)
+
+    #I check the fastq files
     write_msg(file_log,"    - Validating fastq files")
     try:
         valFQ(fqf1,fqf2)
