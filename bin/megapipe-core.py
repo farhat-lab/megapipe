@@ -7,7 +7,9 @@ import re
 import subprocess as sbp
 import json
 import pkg_resources
+import argparse
 from itertools import islice
+import shutil
 
 def get_path(*args, **kw):
     """
@@ -99,22 +101,46 @@ def medianLengthReadsAndReadCount(fastq):
     bp_covered=median_length*num_reads
     return(median_length,num_reads,bp_covered)
 
+def remove_temporary_files(directory_to_remove):
+    shutil.rmtree(directory_to_remove)
+
 ########
 ##MAIN##
 ########
 
-if(len(sys.argv) != 8):
-    print("::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <o2_logs> <n_runs_to_consider[all|num]>".format(sys.argv[0]))
-    sys.exit()
+#idea for the parameters: ::usage: {} <tag> <table_identification_strains> <dir_fastq> <output_dir> <scratch_dir> <o2_logs> <n_runs_to_consider[all|num]> <optional_flags[--skip_assembly|--keep_tmp_files]>
 
-tag=sys.argv[1]
-table=sys.argv[2]
-dir_fastq=sys.argv[3]
-out_dir=sys.argv[4]
-scratch_dir=sys.argv[5]
+parser = argparse.ArgumentParser()
+parser.add_argument("tag", type=str,
+                    help="Tag for the isolates (usually -> biosample)")
+parser.add_argument("table_identification_strains", type=str,
+                    help="Path to the table identification strains")
+parser.add_argument("dir_fastq", type=str,
+                    help="Path to the directory containing the fastq files")
+parser.add_argument("output_dir", type=str,
+                    help="Path to the directory where the results will be written")
+parser.add_argument("scratch_dir", type=str,
+                    help="Path to the directory where the temporary files will be written")
+parser.add_argument("logs_dir", type=str,
+                    help="Path to the directory where the slurm scripts and logs will be written")
+parser.add_argument("n_runs_to_consider", type=int,
+                    help="Maximum number of sequencing runs to consider for the analyses")
+parser.add_argument("-k", "--keep_tmp", action="store_true",
+                    help="keeps the temporary files")
+parser.add_argument("-s", "--skip_assembly", action="store_true",
+                    help="skips the assembly ")
+args = parser.parse_args()
+
+tag=args.tag
+table=args.table_identification_strains
+dir_fastq=args.dir_fastq
+out_dir=args.output_dir
+scratch_dir=args.scratch_dir
 #this directory stores the logs from o2 (output and error)
-log_dir=sys.argv[6]
-runs_to_consider=sys.argv[7]
+log_dir=args.logs_dir
+runs_to_consider=args.n_runs_to_consider
+keep_tmp=args.keep_tmp
+skip_assembly=args.skip_assembly
 
 #I read the configuration file
 data_json=detect_cfg_file()
@@ -143,8 +169,6 @@ if path.isfile(data_json["fasta_ref"]):
         write_msg(file_log,"  * I did not detect the index of the reference. I will generate it")
         cmd="bwa index "+data_json["fasta_ref"]
         system(cmd)
-
-
 
 # I get the data about my strain
 write_msg(file_log,":: I am retrieving the data about the runs to analyze from {}".format(table))
@@ -365,8 +389,8 @@ else:
     write_msg(file_log,"  * {} runs are OK ({})".format(runs_ok,",".join(ranking_runs.keys())))
 
 selected_runs=[]
-# I find the 2 best runs
-if(runs_to_consider=="all"):
+# I find the best runs
+if(runs_to_consider>=len(ranking_runs)):
     runs_to_consider=len(ranking_runs)
 else:
     try:
@@ -442,6 +466,7 @@ write_msg(file_log,"  * Please see the Qualimap report in {}".format(qualimap))
 
 # Removing duplicates
 write_msg(file_log,":: Removing duplicates from bam file with Picard")
+out_bam = get_path(out_dir, tag, "bam")
 drbamfile = bamfile.replace(".bam", ".duprem.bam")
 try:
     cmd=["java","-Xmx32G",
@@ -454,12 +479,12 @@ try:
         "ASSUME_SORT_ORDER=coordinate"
 ]
     sbp.call(cmd) # help from http://seqanswers.com/forums/showthread.php?t=13192
+    sbp.call(["cp", drbamfile, path.join(out_bam,drbamfile[drbamfile.rindex("/") + 1:])])
     write_msg(file_log,"  * OK!")
     write_msg(file_log,"  * Please see the Picard MarkDuplicates report in {0}/{1}".format(scratch_dir,drbamfile[drbamfile.rindex("/") + 1:-4]))
 except:
     write_msg(file_log,"  * [ERROR] I had some problems with picard!")
     sys.exit()
-
 
 write_msg(file_log,":: Calculating depth")
 out = sbp.check_output(["samtools", "depth", "-a", drbamfile])
@@ -513,6 +538,29 @@ except:
     write_msg(file_log,"  * [ERROR] I had some problems with pilon!")
     sys.exit()
 
+# I calculate the lineage using the fast-lineage-caller
+path_to_lineage_snp_db=data_json["lineage_snp_db"]
+scratch_flc = get_path(scratch_dir, tag, "fast-lineage-caller")
+out_flc = get_path(out_dir, tag, "fast-lineage-caller")
+
+try:
+    cmd=["vrtTools-vcf2vrt.py", path.join(out_dir, tag, "pilon", tag+".vcf"), path.join(scratch_flc, tag + ".vrt"), "1"]
+    sbp.call(cmd)
+    cmd=["FastLineageCaller-assign2lineage.py", path_to_lineage_snp_db, path.join(scratch_flc, tag + ".vrt")]
+    with open(path.join(out_flc, tag+".lineage"), "w") as lin:
+        sbp.call(cmd,stdout=lin)
+except:
+    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
+    sys.exit()
+
+
+if skip_assembly:
+    write_msg(file_log,":: I skip the genome assembly!")
+    if not keep_tmp:
+        write_msg(file_log,":: I delete the temporary files")
+        remove_temporary_files(os.path.join(scratch_dir, tag))
+    sys.exit()
+
 # I generate the assembly with spades
 write_msg(file_log,":: Generating the assembly with Spades")
 out_sp = get_path(out_dir, tag, "spades")
@@ -538,19 +586,6 @@ except:
     write_msg(file_log,"  * [ERROR] I had some problems with spades!")
     sys.exit()
 
-# I calculate the lineage using the fast-lineage-caller
-path_to_lineage_snp_db=data_json["lineage_snp_db"]
-scratch_flc = get_path(scratch_dir, tag, "fast-lineage-caller")
-out_flc = get_path(out_dir, tag, "fast-lineage-caller")
-
-try:
-    cmd=["vrtTools-vcf2vrt.py", path.join(out_dir, tag, "pilon", tag+".vcf"), path.join(scratch_flc, tag + ".vrt"), "1"]
-    sbp.call(cmd)
-    cmd=["FastLineageCaller-assign2lineage.py", path_to_lineage_snp_db, path.join(scratch_flc, tag + ".vrt")]
-    with open(path.join(out_flc, tag+".lineage"), "w") as lin:
-        sbp.call(cmd,stdout=lin)
-except:
-    write_msg(file_log,"  * [ERROR] I had some problems with the lineage caller!")
-    sys.exit()
-
-
+if not keep_tmp:
+    write_msg(file_log,":: I delete the temporary files")
+    remove_temporary_files(os.path.join(scratch_dir, tag))
