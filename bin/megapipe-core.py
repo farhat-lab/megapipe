@@ -496,17 +496,17 @@ depths = [float(t[1]) for t in dmat]
 gencovprop = checkDRs(depths)
 write_msg(file_log,"  * The percent of H37Rv bases that have a coverage of at least 10x is {}.".format(str(gencovprop * 100)))
 if(gencovprop < 0.95): # The threshold is 95%
-	write_msg(file_log,"    - [ERROR] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
-	sys.exit()
+    write_msg(file_log,"    - [ERROR] The percent of H37Rv bases that have a coverage of at least 10x is less than 95%.")
+    sys.exit()
 fileout_depth = get_path(out_dir, tag, "depth", fn=tag + ".depth")
 write_msg(fileout_depth,out.decode("ascii"))
 # I compress the depth output file
 cmd="gzip {}".format(fileout_depth)
-system(cmd) 
+system(cmd)
 refcov = 0
 for d in depths:
-	if(d > 0):
-		refcov += 1
+    if(d > 0):
+        refcov += 1
 write_msg(file_log,"  * Percent of reference genome covered: {}".format(refcov / len(depths)))
 
 write_msg(file_log,":: Indexing {}".format(drbamfile))
@@ -530,7 +530,11 @@ try:
     # I reduce the size of the pilon output
     cmd=["megapipe-vcf-cutter.py", out_pilon+".vcf", path.join(out_pi, tag+".vcf")]
     sbp.call(cmd)
-    # I copy the data 
+    # I copy the data
+    ## I copy and compress the original pilon vcf
+    system("cp {0}.vcf {1}".format(out_pilon, out_pi))
+    system("gzip {0}/{1}.vcf".format(out_pi,tag))
+    ## I copy the fasta file
     system("cp {0}.fasta {1}".format(out_pilon, out_pi))
     write_msg(file_log,"  * OK")
 
