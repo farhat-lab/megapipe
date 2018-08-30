@@ -532,8 +532,8 @@ try:
     sbp.call(cmd)
     # I copy the data
     ## I copy and compress the original pilon vcf
-    system("cp {0}.vcf {1}".format(out_pilon, out_pi))
-    system("gzip {0}/{1}.vcf".format(out_pi,tag))
+    system("cp {0}.vcf {1}/{2}_full.vcf".format(out_pilon, out_pi, tag))
+    system("gzip {0}/{1}_full.vcf".format(out_pi,tag))
     ## I copy the fasta file
     system("cp {0}.fasta {1}".format(out_pilon, out_pi))
     write_msg(file_log,"  * OK")
