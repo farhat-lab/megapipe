@@ -25,8 +25,12 @@ with open(args.tsv_out,"w") as outf:
 		if os.path.isfile(args.results_dir+"/"+d.name+"/fast-lineage-caller/"+d.name+".lineage"):
 			with open(args.results_dir+"/"+d.name+"/fast-lineage-caller/"+d.name+".lineage","r") as inp:
 				line=inp.readline()
-				entry=line.rstrip("\n").split(" ")
-				lineage=entry[1]
+				try:
+					entry=line.rstrip("\n").split(" ")
+					lineage=entry[1]
+				except:
+					print("[ERROR] {} | The fast lineage caller generated a lineage file, but I cannot read it!".format(d.name))
+					pass
 		#I check if the vcf is present
 		if os.path.isfile(args.results_dir+"/"+d.name+"/pilon/"+d.name+".vcf"):
 			vcf="YES"
