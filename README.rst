@@ -187,6 +187,14 @@ If you are running megapipe on o2, megapipe has to use some modules in order to 
 
 Version history
 ===============
+* v2.1
+    * write functions to organize the code
+    * use the data downloaded by metatools
+    * script to install the dependencies through conda
+      * get the information about the versions of the packages (if the user installed the packages through conda)
+    * improve the output that goes into the grid engine output file
+    * make independent sc
+    * the script that downloads the reads in parallel should use gridpuppeteer
 * v2.0
     * reduced disk space occupied by output files (now the results take 1/8th of the space they were occupying before)
         * I parse the vcf file and save only the relevant information (pilon provides information for all genomic positions, even those that are the same between the REF and ALT genomes)
@@ -196,15 +204,6 @@ Version history
         * vrtTools and Fast-lineage-caller scripts work with python 3
     * log the versions of the programs that megapipe uses (important when we want to write papers)
         * it is not possible to get the version of all programs (some of them do not have a -v or --version option). I leave to the user the duty to take note of the versions.
-
-Todo
-====
-* v2.1
-    * script to install the dependencies through conda
-    * get the information about the versions of the packages (if the user installed the packages through conda)
-    * improve the output that goes into the grid engine output file
-    * download metadata from any NCBI ID (also integrated in the package metatools).
-    * the script that downloads the reads in parallel should use gridpuppeteer
 
 Misc
 ====
