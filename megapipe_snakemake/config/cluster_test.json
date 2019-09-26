@@ -1,0 +1,57 @@
+{
+    "__default__" :
+    {
+        "account" : "lf61",
+        "time" : "0-1:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "1G"
+    },
+
+    "combine_runs" :
+    {
+        "account" : "lf61",
+        "time" : "0-3:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "5G"
+    },
+
+
+    "variant_calling" :
+    {
+        "account" : "lf61",
+        "time" : "0-12:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "32G"
+    },
+
+    "remove_duplicates" :
+    {
+        "account" : "lf61",
+        "time" : "0-5:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "32G"
+    },
+
+    "sort_convert_tobam" :
+    {
+        "account" : "lf61",
+        "time" : "0-1:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "20G"
+    },
+
+    "calculate_depth" :
+    {
+        "account" : "lf61",
+        "time" : "0-1:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "5G"
+    },
+}
+

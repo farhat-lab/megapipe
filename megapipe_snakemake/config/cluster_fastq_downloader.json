@@ -1,0 +1,12 @@
+{
+    "download_fastq" :
+    {
+        "account" : "lf61",
+        "time" : "0-1:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "1G"
+    },
+
+}
+
