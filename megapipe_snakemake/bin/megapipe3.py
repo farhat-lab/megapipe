@@ -20,8 +20,8 @@ rule generate_idx_ref:
 
 rule combine_runs:
     output: 
-        config["temp_dir"]+"{sample}/{sample}-combined_1.fastq",
-        config["temp_dir"]+"{sample}/{sample}-combined_2.fastq" 
+        temp(config["temp_dir"]+"{sample}/{sample}-combined_1.fastq"),
+        temp(config["temp_dir"]+"{sample}/{sample}-combined_2.fastq") 
     log: 
         config["logs_analysis"]+"{sample}/combine_runs.txt"
     shell:
@@ -34,7 +34,7 @@ rule align_to_ref:
         comb_fq1=config["temp_dir"]+ "{sample}/{sample}-combined_1.fastq",
         comb_fq2=config["temp_dir"]+ "{sample}/{sample}-combined_2.fastq" 
     output: 
-        config["temp_dir"]+ "{sample}/{sample}.sam"
+        temp(config["temp_dir"]+ "{sample}/{sample}.sam")
     log: 
         config["logs_analysis"]+"{sample}/align_to_ref.txt"
     shell:
@@ -46,7 +46,7 @@ rule sort_convert_tobam:
     input:
         config["temp_dir"]+ "{sample}/{sample}.sam"
     output:
-        config["temp_dir"]+ "{sample}/{sample}.bam"
+        temp(config["temp_dir"]+ "{sample}/{sample}.bam")
     log:
         config["logs_analysis"]+"{sample}/sort_convert_tobam.txt"
     shell:
