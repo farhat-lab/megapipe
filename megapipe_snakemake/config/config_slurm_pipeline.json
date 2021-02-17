@@ -8,6 +8,15 @@
         "mem" : "1G"
     },
 
+    "align_to_ref" :
+    {
+        "account" : "lf61",
+        "time" : "0-3:00",
+        "n" : 1,
+        "partition" : "short",
+        "mem" : "5G"
+    },
+
     "combine_runs" :
     {
         "account" : "lf61",

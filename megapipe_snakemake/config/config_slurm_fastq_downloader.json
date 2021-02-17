@@ -2,10 +2,10 @@
     "download_fastq" :
     {
         "account" : "lf61",
-        "time" : "0-1:00",
+        "time" : "0-5:00",
         "n" : 1,
         "partition" : "short",
-        "mem" : "1G"
+        "mem" : "2G"
     },
 
 }

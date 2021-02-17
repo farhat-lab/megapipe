@@ -1,9 +1,9 @@
 {
-    "logs_analysis": "logs/20190923_test2/",
-    "summary_runs": "metadata/summary_tables/test2.tsv",
+    "logs_analysis": "logs/tutorial/",
+    "summary_runs": "logs/tutorial/summary_runs.tsv",
     "path_ref_genome": "/home/lf61/lf61/repos/megapipe/RefGen/TBRefGen.fasta",
-    "temp_dir":"/n/scratch2/lf61/temp/",
-    "fastq_dir":"/home/lf61/fq/",
+    "temp_dir":"/home/lf61/lf61/repos/megapipe/megapipe_snakemake/temp/",
+    "fastq_dir":"/home/lf61/lf61/repos/megapipe/megapipe_snakemake/fq/",
     "path_to_prinseq":"/home/lf61/mfarhat/bin/prinseq-lite-0.20.4/prinseq-lite.pl",
     "path_to_kraken_db":"/n/data1/hms/dbmi/farhat/bin/kraken/tbdb/",
     "bin_fastqvalidator":"/home/lf61/mfarhat/bin/fastQValidator/bin/fastQValidator",
