@@ -1,7 +1,7 @@
 {
     "logs_analysis": "logs/tutorial/",
     "summary_runs": "logs/tutorial/summary_runs.tsv",
-    "path_ref_genome": "/home/lf61/lf61/repos/megapipe/RefGen/TBRefGen.fasta",
+    "path_ref_genome": "./data/TBRefGen.fasta",
     "temp_dir":"/home/lf61/lf61/repos/megapipe/megapipe_snakemake/temp/",
     "fastq_dir":"/home/lf61/lf61/repos/megapipe/megapipe_snakemake/fq/",
     "path_to_prinseq":"/home/lf61/mfarhat/bin/prinseq-lite-0.20.4/prinseq-lite.pl",

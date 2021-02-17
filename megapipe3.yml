@@ -1,4 +1,8 @@
 name: megapipe3
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
 dependencies:
   - bwa=0.7.17
   - pilon=1.22
