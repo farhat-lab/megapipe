@@ -20,11 +20,20 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 ```
 
-<mark>[conda is too slow (it takes hours to solve the deps)]</mark>
+3. Install the remaining software:
 
-- [ ] add metatools_ncbi to the `.yml` file
-- [ ] add `fast-lineage-caller-vcf` to the required packages (needs a manual install?)
-- [ ] fastQValidator (manual install)
+```
+# Installing metatools_ncbi
+pip install metatools_ncbi
+
+# Installing fast-lineage-caller
+git clone https://github.com/farhat-lab/fast-lineage-caller-vcf.git
+cd fast-lineage-caller-vcf/
+python setup.py sdist
+pip install dist/fast_lineage_caller_vcf-0.1.1.tar.gz
+
+# Install fastQValidator
+```
 
 
 ## Important directories
