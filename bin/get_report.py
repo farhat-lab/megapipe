@@ -5,7 +5,7 @@ import os
 
 # I read the isolates to analyze file and check the directories that are present in the results folder
 ## Need to load the json config file
-with open('./config/config.json') as json_file:
+with open('./config/config_pipeline.json') as json_file:
     config_data = json.load(json_file)
 
 ## get the list of isolates
@@ -44,4 +44,3 @@ print("* Steps where megapipe stopped:")
 for step in steps_megapipe_failed:
     print("  - {}".format(step))
     print(list(steps_megapipe_failed[step].keys()))
-

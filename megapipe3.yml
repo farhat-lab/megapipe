@@ -4,11 +4,11 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - snakemake=5.32.2
-  - bwa=0.7.17
-  - pilon=1.22
-  - samtools=1.9
-  - sra-tools=2.9.1_1
-  - prinseq=0.20.4
-  - picard=2.25.0
-  - kraken=1.1.1
+  - snakemake
+  - bwa
+  - pilon
+  - samtools
+  - sra-tools
+  - prinseq
+  - picard
+  - kraken

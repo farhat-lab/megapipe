@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-configfile: "./config/config.json"
+configfile: "./config/config_pipeline.json"
 
 """
 This will be a snakemake file to deal with the download operation
 """
 
-onstart: 
+onstart:
     "python3 ./bin/get_list_run_ids.py"
 
 with open(config["logs_analysis"]+"runs_to_download.txt", "r") as inp:
-    samples = inp.read().splitlines() 
+    samples = inp.read().splitlines()
 
 rule all:
-    input: 
+    input:
         expand(config["fastq_dir"]+"{sample}_1.fastq.gz", sample=samples),
         expand(config["fastq_dir"]+"{sample}_2.fastq.gz", sample=samples)
 
@@ -24,4 +24,3 @@ rule download_fastq:
         wget -O {config[fastq_dir]}/{wildcards.sample} "$SRAPATH"
         fastq-dump --split-files --gzip {config[fastq_dir]}/{wildcards.sample} -O {config[fastq_dir]}
         """
-

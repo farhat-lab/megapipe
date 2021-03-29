@@ -1,4 +1,4 @@
-configfile: "./config/config.json"
+configfile: "./config/config_pipeline.json"
 
 #I read the file with the of the samples to analyze to get the list of samples
 with open(config["logs_analysis"]+"isolates_to_analyze.txt", "r") as inp:
@@ -7,7 +7,7 @@ print(samples)
 #print(expand(config["temp_dir"]+ "{sample}/{sample}-combined_1.fastq", sample=samples))
 
 rule all:
-    input: 
+    input:
         config["path_ref_genome"]+".bwt",
         expand("results/{sample}/bam/{sample}.duprem.bam.bai", sample=samples),
         expand("results/{sample}/fast-lineage-caller/{sample}.lineage", sample=samples)
@@ -19,10 +19,10 @@ rule generate_idx_ref:
     shell: "bwa index {input} 2> {log}"
 
 rule combine_runs:
-    output: 
+    output:
         temp(config["temp_dir"]+"{sample}/{sample}-combined_1.fastq"),
-        temp(config["temp_dir"]+"{sample}/{sample}-combined_2.fastq") 
-    log: 
+        temp(config["temp_dir"]+"{sample}/{sample}-combined_2.fastq")
+    log:
         config["logs_analysis"]+"{sample}/combine_runs.txt"
     shell:
         """
@@ -32,10 +32,10 @@ rule combine_runs:
 rule align_to_ref:
     input:
         comb_fq1=config["temp_dir"]+ "{sample}/{sample}-combined_1.fastq",
-        comb_fq2=config["temp_dir"]+ "{sample}/{sample}-combined_2.fastq" 
-    output: 
+        comb_fq2=config["temp_dir"]+ "{sample}/{sample}-combined_2.fastq"
+    output:
         temp(config["temp_dir"]+ "{sample}/{sample}.sam")
-    log: 
+    log:
         config["logs_analysis"]+"{sample}/align_to_ref.txt"
     shell:
         """
@@ -58,7 +58,7 @@ rule remove_duplicates:
     input:
         config["temp_dir"]+ "{sample}/{sample}.bam"
     output:
-        outfile="results/{sample}/bam/{sample}.duprem.bam", metrics=config["temp_dir"]+"results/{sample}/bam/{sample}.metrics" 
+        outfile="results/{sample}/bam/{sample}.duprem.bam", metrics=config["temp_dir"]+"results/{sample}/bam/{sample}.metrics"
     log:
         config["logs_analysis"]+"{sample}/duprem.txt"
     shell:
@@ -92,7 +92,7 @@ rule variant_calling:
     input:
         bam="results/{sample}/bam/{sample}.duprem.bam", depth_ok="results/{sample}/depth/{sample}_depth_OK", bai="results/{sample}/bam/{sample}.duprem.bam.bai"
     output:
-        "results/{sample}/pilon/{sample}.vcf", "results/{sample}/pilon/{sample}.fasta", "results/{sample}/pilon/{sample}_full.vcf.gz" 
+        "results/{sample}/pilon/{sample}.vcf", "results/{sample}/pilon/{sample}.fasta", "results/{sample}/pilon/{sample}_full.vcf.gz"
     log:
         config["logs_analysis"]+"{sample}/variant_calling.txt"
     shell:
@@ -128,4 +128,3 @@ rule rem_results:
         printf "current directory: ";pwd
         rm -rf -I *
         """
-

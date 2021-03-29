@@ -74,7 +74,7 @@ def medianLengthReadsAndReadCount(fastq):
 # I load the configuration file
 ## It is needed to know where kraken and prinseq are
 import json
-with open('./config/config.json') as inp:
+with open('./config/config_pipeline.json') as inp:
     config = json.load(inp)
 
 try:
@@ -91,10 +91,10 @@ tab=pd.read_csv(args.summary_runs, sep="\t")
 tab_sel=tab.loc[tab["biosample"]==args.biosample]
 ## If I do not find anything, the analysis finishes here
 if tab_sel.shape[0] == 0:
-    raise Exception("- [ERROR] Sorry! I did not find the biosample you provided in the summary runs file.") 
+    raise Exception("- [ERROR] Sorry! I did not find the biosample you provided in the summary runs file.")
 ## If I find multiple lines corresponding to one biosample, something went wrong too
 elif tab_sel.shape[0] > 1:
-    raise Exception("- [ERROR] There are multiple lines in the summary_runs file that match the biosample you provided.") 
+    raise Exception("- [ERROR] There are multiple lines in the summary_runs file that match the biosample you provided.")
 else:
     runs=tab_sel.iloc[0]["run_id"].split(",")
     runs_formatted=[]
