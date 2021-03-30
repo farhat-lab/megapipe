@@ -5,11 +5,12 @@
 
 A directory called `megapipe` will be created!
 
-2. Create a conda environment for megapipe using the `.yml` file provided and activate it. This step might take a while, so please have a coffee or read a paper.
+2. Create a conda environment and activate it. Install the mjority of the software packages with conda
 
 ````
-conda env create -f megapipe3.yml
+conda create --name megapipe3 python=3.8
 conda activate megapipe3
+conda install snakemake pilon samtools bwa sra-tools prinseq picard kraken
 ````
 
 **Note**: remember to check if you have the bioconda channel in your `.condarc` file. Otherwise you can add it and reorder the priority of your channels:
@@ -23,18 +24,35 @@ conda config --add channels conda-forge
 3. Install the remaining software:
 
 ```
-# Installing metatools_ncbi
+# INSTALLING metatools_ncbi
 pip install metatools_ncbi
 
-# Installing fast-lineage-caller
+# INSTALLING fast-lineage-caller
+mkdir -p sw/
+cd sw/
 git clone https://github.com/farhat-lab/fast-lineage-caller-vcf.git
 cd fast-lineage-caller-vcf/
 python setup.py sdist
 pip install dist/fast_lineage_caller_vcf-0.1.1.tar.gz
+cd ..
 
-# Install fastQValidator
+# INSTALL AND CONFIGURE gcc
+# This is needed in order to compile fastQValidator
+# You might need to modify this a little if you are using MacOS
+conda install gcc_linux-64 gxx_linux-64
+ln -s -f `which x86_64-conda_cos6-linux-gnu-gcc` ${CONDA_PREFIX}/bin/gcc
+ln -s -f `which x86_64-conda_cos6-linux-gnu-ar` ${CONDA_PREFIX}/bin/ar
+ln -s -f `which x86_64-conda_cos6-linux-gnu-g++` ${CONDA_PREFIX}/bin/g++
+
+
+# INSTALLING fastQValidator
+git clone https://github.com/statgen/fastQValidator.git
+git clone https://github.com/statgen/libStatGen.git
+cd sw/libStatGen/
+make
+cd ../fastQValidator/
+make all
 ```
-
 
 ## Important directories
 
