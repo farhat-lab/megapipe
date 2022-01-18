@@ -39,7 +39,7 @@ rule align_to_ref:
         config["logs_analysis"]+"{sample}/align_to_ref.txt"
     shell:
         """
-            bwa mem -M {config[path_ref_genome]} {input.comb_fq1} {input.comb_fq2} > {output} 2> {log}
+            minimap2 -ax sr {config[path_ref_genome]} {input.comb_fq1} {input.comb_fq2} > {output} 2> {log}
         """
 
 rule sort_convert_tobam:
