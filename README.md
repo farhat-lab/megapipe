@@ -10,7 +10,7 @@ A directory called `megapipe` will be created!
 ````
 conda create --name megapipe3 python=3.8
 conda activate megapipe3
-conda install snakemake pilon samtools bwa sra-tools prinseq picard kraken minimap
+conda install snakemake pilon samtools bwa sra-tools picard kraken minimap spades trimmomatic pigz
 ````
 
 **Note**: remember to check if you have the bioconda channel in your `.condarc` file. Otherwise you can add it and reorder the priority of your channels:
